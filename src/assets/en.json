@@ -1,0 +1,34 @@
+{
+  "app": {
+    "title": "Maxwell Work Track"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "employees": "Employees",
+    "projects": "Projects",
+    "reports": "Reports",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "overview": "Dashboard Overview",
+    "totalEmployees": "Total Employees",
+    "activeProjects": "Active Projects",
+    "completedTasks": "Completed Tasks",
+    "pendingTasks": "Pending Tasks"
+  },
+  "common": {
+    "search": "Search",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "submit": "Submit",
+    "loading": "Loading..."
+  },
+  "language": {
+    "english": "English",
+    "french": "French"
+  }
+}

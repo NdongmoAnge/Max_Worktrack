@@ -23,8 +23,10 @@ export const NAV: Record<Role, NavItem[]> = {
   company_admin: [
     { label: 'Dashboard', icon: 'dashboard', path: 'dashboard' },
     { label: 'Users', icon: 'users', path: 'users' },
+    { label: 'Invitations', icon: 'mail', path: 'invitations' },
     { label: 'Branches', icon: 'branch', path: 'branches' },
     { label: 'Departments', icon: 'layers', path: 'departments' },
+    { label: 'Reporting Schedule', icon: 'calendar', path: 'schedule' },
     { label: 'Projects', icon: 'folder', path: 'projects' },
     { label: 'Activity Reports', icon: 'file', path: 'reports' },
     { label: 'Reports & Statistics', icon: 'chart', path: 'export' },
@@ -34,6 +36,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { label: 'Dashboard', icon: 'dashboard', path: 'dashboard' },
     { label: 'Branch Information', icon: 'info', path: 'branch' },
     { label: 'Employees & Interns', icon: 'users', path: 'employees' },
+    { label: 'Reporting Schedule', icon: 'calendar', path: 'schedule' },
     { label: 'Branch Projects', icon: 'folder', path: 'projects' },
     { label: 'Project Progress', icon: 'chart', path: 'progress' },
     { label: 'Weekly Activity Reports', icon: 'file', path: 'reports' },

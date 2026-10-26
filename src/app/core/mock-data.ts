@@ -1,26 +1,41 @@
-import { User } from './models';
-import { summarizeEntries } from './report-rules';
+import { ROLE_LABELS, Role, User } from './models';
+import { isoToday, summarizeEntries } from './report-rules';
 
 /* ------------------------------------------------------------------ */
 /*  SAMPLE DATA - replace with real API calls when the back end is ready */
 /* ------------------------------------------------------------------ */
 
 export const DEMO_USERS: User[] = [
-  { id: 1, firstName: 'Platform', lastName: 'Admin', email: 'superadmin@demo.com', role: 'super_admin', enterprise: 'ReportFlow Platform' },
+  { id: 1, firstName: 'Platform', lastName: 'Admin', email: 'superadmin@demo.com', role: 'super_admin', enterprise: 'Max WorkTrack Platform' },
   { id: 2, firstName: 'Linda', lastName: 'Essomba', email: 'company@demo.com', role: 'company_admin', enterprise: 'Maxwell Technology' },
   { id: 3, firstName: 'Samuel', lastName: 'Nkeng', email: 'manager@demo.com', role: 'branch_manager', enterprise: 'Maxwell Technology', branch: 'Douala HQ' },
   { id: 4, firstName: 'Carine', lastName: 'Fotso', email: 'employee@demo.com', role: 'employee', enterprise: 'Maxwell Technology', branch: 'Douala HQ' },
   { id: 5, firstName: 'Brice', lastName: 'Tamo', email: 'intern@demo.com', role: 'intern', enterprise: 'Maxwell Technology', branch: 'Douala HQ' }
 ];
 
+/** Sample accounts and their passwords (front-end sample only; the back end will own real authentication). */
+const PASSWORDS: Record<string, string> = {
+  'superadmin@demo.com': 'Admin@2026', 'company@demo.com': 'Company@2026', 'manager@demo.com': 'Manager@2026',
+  'employee@demo.com': 'Employee@2026', 'intern@demo.com': 'Intern@2026'
+};
+export interface Account extends User { password: string; }
+export const ACCOUNTS: Account[] = DEMO_USERS.map(u => ({ ...u, password: PASSWORDS[u.email] }));
+
 export const ENTERPRISES: any[] = [
-  { id: 1, name: 'Maxwell Technology', email: 'contact@maxwell.tech', phone: '+237 677 00 11 22', address: 'Bonanjo, Douala', status: 'Active', createdAt: '2026-09-02', adminName: 'Linda Essomba' },
-  { id: 2, name: 'ABC Technologies', email: 'info@abctech.cm', phone: '+237 699 12 34 56', address: 'Bastos, Yaoundé', status: 'Suspended', createdAt: '2026-09-14', adminName: 'Roger Biyik' },
-  { id: 3, name: 'Douala Logistics', email: 'hello@doualalogistics.cm', phone: '+237 677 45 67 89', address: 'Akwa, Douala', status: 'Active', createdAt: '2026-09-28', adminName: 'Sandra Mbia' },
-  { id: 4, name: 'Kribi Energy', email: 'admin@kribi-energy.cm', phone: '+237 655 22 33 44', address: 'Port Road, Kribi', status: 'Active', createdAt: '2026-10-05', adminName: 'Paul Etoga' },
-  { id: 5, name: 'Bamenda AgroTech', email: 'contact@bamendaagro.cm', phone: '+237 670 98 76 54', address: 'Commercial Avenue, Bamenda', status: 'Active', createdAt: '2026-10-12', adminName: 'Grace Tabi' },
-  { id: 6, name: 'Yaoundé Health Systems', email: 'office@yhs.cm', phone: '+237 690 11 22 33', address: 'Mvog-Ada, Yaoundé', status: 'Active', createdAt: '2026-10-18', adminName: 'Idriss Mohamadou' }
+  { id: 1, name: 'Maxwell Technology', defaultLanguage: 'English', email: 'contact@maxwell.tech', phone: '+237 677 00 11 22', address: 'Bonanjo, Douala', status: 'Active', createdAt: '2026-09-02', adminName: 'Linda Essomba' },
+  { id: 2, name: 'ABC Technologies', defaultLanguage: 'French', email: 'info@abctech.cm', phone: '+237 699 12 34 56', address: 'Bastos, Yaoundé', status: 'Suspended', createdAt: '2026-09-14', adminName: 'Roger Biyik' },
+  { id: 3, name: 'Douala Logistics', defaultLanguage: 'French', email: 'hello@doualalogistics.cm', phone: '+237 677 45 67 89', address: 'Akwa, Douala', status: 'Active', createdAt: '2026-09-28', adminName: 'Sandra Mbia' },
+  { id: 4, name: 'Kribi Energy', defaultLanguage: 'English', email: 'admin@kribi-energy.cm', phone: '+237 655 22 33 44', address: 'Port Road, Kribi', status: 'Active', createdAt: '2026-10-05', adminName: 'Paul Etoga' },
+  { id: 5, name: 'Bamenda AgroTech', defaultLanguage: 'English', email: 'contact@bamendaagro.cm', phone: '+237 670 98 76 54', address: 'Commercial Avenue, Bamenda', status: 'Active', createdAt: '2026-10-12', adminName: 'Grace Tabi' },
+  { id: 6, name: 'Yaoundé Health Systems', defaultLanguage: 'French', email: 'office@yhs.cm', phone: '+237 690 11 22 33', address: 'Mvog-Ada, Yaoundé', status: 'Active', createdAt: '2026-10-18', adminName: 'Idriss Mohamadou' }
 ];
+
+// Enterprises created/edited by the Super Admin are kept in the browser so they survive a page reload (sample storage).
+try {
+  const saved = JSON.parse(localStorage.getItem('rms_enterprises') || 'null');
+  if (Array.isArray(saved) && saved.length) ENTERPRISES.splice(0, ENTERPRISES.length, ...saved);
+} catch {}
+export function saveEnterprises() { try { localStorage.setItem('rms_enterprises', JSON.stringify(ENTERPRISES)); } catch {} }
 
 export const INVITATIONS: any[] = [
   { id: 1, enterprise: 'Yaoundé Health Systems', invitee: 'Idriss Mohamadou', email: 'idriss@yhs.cm', status: 'Pending', invitedAt: '2026-10-18', expiresAt: '2026-10-25' },
@@ -31,7 +46,7 @@ export const INVITATIONS: any[] = [
 ];
 
 export const PLATFORM_USERS: any[] = [
-  { id: 1, name: 'Platform Admin', email: 'superadmin@demo.com', role: 'Super Admin', enterprise: 'ReportFlow Platform', status: 'Active' },
+  { id: 1, name: 'Platform Admin', email: 'superadmin@demo.com', role: 'Super Admin', enterprise: 'Max WorkTrack Platform', status: 'Active' },
   { id: 2, name: 'Linda Essomba', email: 'company@demo.com', role: 'Company Admin', enterprise: 'Maxwell Technology', status: 'Active' },
   { id: 3, name: 'Roger Biyik', email: 'roger@abctech.cm', role: 'Company Admin', enterprise: 'ABC Technologies', status: 'Inactive' },
   { id: 4, name: 'Paul Etoga', email: 'admin@kribi-energy.cm', role: 'Company Admin', enterprise: 'Kribi Energy', status: 'Active' },
@@ -73,6 +88,34 @@ export const USERS: any[] = rawUsers.map((u, i) => ({
   role: u[2], branch: u[3], department: u[4], status: u[5], invitation: u[6],
   weeklyReport: missing.includes(u[0] + ' ' + u[1]) ? 'Missing' : 'Submitted'
 }));
+
+// ---- invitations: every person (Company Admin, Branch Manager, Employee, Intern) joins through an emailed invitation link
+export function newToken(): string { return 'inv-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+INVITATIONS.forEach(i => {
+  const parts = String(i.invitee).split(' ');
+  i.role = i.role ?? 'Company Admin';
+  i.firstName = i.firstName ?? parts[0];
+  i.lastName = i.lastName ?? parts.slice(1).join(' ');
+  i.token = i.token ?? 'seed-' + i.id + '-' + String(i.enterprise).replace(/[^A-Za-z]/g, '').slice(0, 4).toLowerCase();
+});
+[
+  { id: 6, name: 'Nadine Kouam', role: 'Intern', branch: 'Yaoundé Branch', department: 'Support', invitedAt: '2026-10-20', expiresAt: '2026-10-30' },
+  { id: 7, name: 'Hervé Tchinda', role: 'Employee', branch: 'Bafoussam Branch', department: 'Support', invitedAt: '2026-10-19', expiresAt: '2026-10-29' }
+].forEach(s => {
+  const parts = s.name.split(' ');
+  INVITATIONS.push({ id: s.id, token: 'seed-' + s.id + '-maxw', enterprise: 'Maxwell Technology', invitee: s.name, firstName: parts[0], lastName: parts[1], email: ascii(parts[0] + '.' + parts[1]) + '@maxwell.tech', role: s.role, branch: s.branch, department: s.department, status: 'Pending', invitedAt: s.invitedAt, expiresAt: s.expiresAt, invitedBy: 'Linda Essomba' });
+});
+try { const s = JSON.parse(localStorage.getItem('rms_invitations') || 'null'); if (Array.isArray(s) && s.length) INVITATIONS.splice(0, INVITATIONS.length, ...s); } catch {}
+try { const s = JSON.parse(localStorage.getItem('rms_users') || 'null'); if (Array.isArray(s) && s.length) USERS.splice(0, USERS.length, ...s); } catch {}
+export function saveInvitations() { try { localStorage.setItem('rms_invitations', JSON.stringify(INVITATIONS)); } catch {} }
+export function saveUsers() { try { localStorage.setItem('rms_users', JSON.stringify(USERS)); } catch {} }
+/** A pending invitation whose expiry date has passed counts as expired. */
+export function effectiveStatus(inv: any): string { return inv.status === 'Pending' && inv.expiresAt < isoToday() ? 'Expired' : inv.status; }
+export function lookupInvitation(token: string): any | null { return INVITATIONS.find(i => i.token === token) ?? null; }
+/** Accounts created when invitations were accepted. */
+export function storedAccounts(): Record<string, { password: string; user: User }> {
+  try { return JSON.parse(localStorage.getItem('rms_accounts') || '{}'); } catch { return {}; }
+}
 
 export const BRANCHES: any[] = [
   { id: 1, name: 'Douala HQ', city: 'Douala', manager: 'Samuel Nkeng', employees: 12, status: 'Active' },
@@ -118,6 +161,7 @@ extra('RPT-101', { project: 'Customer Portal', projectId: 'PRJ-005', description
 extra('RPT-101', { project: 'Mobile Application', projectId: 'PRJ-003', description: 'Documented the open usability issues while the project is paused.', startDate: '2026-10-12', endDate: '2026-10-13', activityStatus: 'On Hold' });
 extra('RPT-102', { project: 'Website Redesign', projectId: 'PRJ-001', description: 'Updated the style guide with the new colour tokens.', startDate: '2026-10-15', endDate: '2026-10-16', activityStatus: 'Completed' });
 extra('RPT-105', { project: 'Customer Portal', projectId: 'PRJ-005', description: 'Built the dashboard card components.', startDate: '2026-10-07', endDate: '2026-10-09', activityStatus: 'In Progress' });
+REPORTS.forEach(r => r.entries.forEach((e: any) => { e.actualEndDate = e.actualEndDate ?? e.endDate; }));
 REPORTS.forEach(r => Object.assign(r, summarizeEntries(r.entries)));
 
 export const NOTIFICATIONS: any[] = [
@@ -135,8 +179,14 @@ export function dataFor(entity: string, user: User): any[] {
   const name = fullName(user);
   switch (entity) {
     case 'enterprises': return copy(ENTERPRISES);
-    case 'invitations': return copy(INVITATIONS);
-    case 'platform-users': return copy(PLATFORM_USERS);
+    case 'invitations': return copy(INVITATIONS.filter(i => i.role === 'Company Admin')).map(r => ({ ...r, status: effectiveStatus(r) }));
+    case 'user-invitations': return copy(INVITATIONS.filter(i => i.role !== 'Company Admin' && i.enterprise === user.enterprise)).map(r => ({ ...r, status: effectiveStatus(r) }));
+    case 'platform-users': {
+      const known = new Set(PLATFORM_USERS.map(p => p.email.toLowerCase()));
+      const extra = Object.values(storedAccounts()).filter(a => !known.has(a.user.email.toLowerCase()))
+        .map(a => ({ id: a.user.id, name: a.user.firstName + ' ' + a.user.lastName, email: a.user.email, role: ROLE_LABELS[a.user.role as Role], enterprise: a.user.enterprise, status: 'Active' }));
+      return [...copy(PLATFORM_USERS), ...extra];
+    }
     case 'activity-logs': return copy(LOGS);
     case 'users': return copy(USERS);
     case 'branches': return copy(BRANCHES);
@@ -180,7 +230,8 @@ export function detailFor(entity: string, id: string | null, user: User): Detail
     return { title: e.name, crumbs: ['Enterprises', e.name], backLink: '{base}/enterprises', editLink: '{base}/enterprises/' + e.id + '/edit',
       fields: [
         { label: 'Enterprise name', value: e.name }, { label: 'Email', value: e.email }, { label: 'Phone', value: e.phone },
-        { label: 'Address', value: e.address }, { label: 'Status', value: e.status, badge: true },
+        { label: 'Address', value: e.address }, { label: 'Default language', value: e.defaultLanguage },
+        { label: 'Status', value: e.status, badge: true },
         { label: 'Date created', value: e.createdAt }, { label: 'Company admin', value: e.adminName }
       ] };
   }

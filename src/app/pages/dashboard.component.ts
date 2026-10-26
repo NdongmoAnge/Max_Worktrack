@@ -2,6 +2,8 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { I18nService } from '../core/i18n.service';
+import { ScheduleService } from '../core/schedule.service';
+import { toIso } from '../core/report-rules';
 import { buildDashboard, Slice } from '../core/dashboard.config';
 import { PageHeaderComponent } from '../shared/page-header.component';
 import { StatCardComponent } from '../shared/stat-card.component';
@@ -51,7 +53,7 @@ const COLORS = ['#0a0af0', '#0a0a0a', '#8c8cff', '#c9c9d6', '#4b4bff'];
               @for (d of week(); track d.day) {
                 <div class="day" role="listitem" [class.today]="d.today">
                   <small>{{ d.dow }}</small><strong>{{ d.day }}</strong>
-                  @if (d.monday) { <em>{{ 'Report day' | t }}</em> }
+                  @if (d.report) { <em>{{ 'Report day' | t }}</em> }
                 </div>
               }
             </div>
@@ -120,10 +122,13 @@ const COLORS = ['#0a0af0', '#0a0a0a', '#8c8cff', '#c9c9d6', '#4b4bff'];
 export class DashboardComponent {
   private auth = inject(AuthService);
   private i18n = inject(I18nService);
+  private schedule = inject(ScheduleService);
   first = this.auth.user()!.firstName;
 
   /** Rebuilt whenever the language changes (month names, dates, composed sentences). */
-  cfgS = computed(() => { this.i18n.lang(); return buildDashboard(this.auth.role()!, this.auth.user()!, (s, p) => this.i18n.t(s, p), this.i18n.locale); });
+  private isWorker() { return this.auth.role() === 'employee' || this.auth.role() === 'intern'; }
+  private reportDate() { return this.isWorker() ? this.schedule.nextFor(this.auth.fullName()) : undefined; }
+  cfgS = computed(() => { this.i18n.lang(); return buildDashboard(this.auth.role()!, this.auth.user()!, (s, p) => this.i18n.t(s, p), this.i18n.locale, this.reportDate()); });
   greeting = computed(() => {
     this.i18n.lang();
     const h = new Date().getHours();
@@ -134,11 +139,12 @@ export class DashboardComponent {
   monthLabel = computed(() => { this.i18n.lang(); return new Date().toLocaleDateString(this.i18n.locale, { month: 'long', year: 'numeric' }); });
   week = computed(() => {
     this.i18n.lang();
+    const rd = this.reportDate();
     const t = new Date();
     const mon = new Date(t); mon.setDate(t.getDate() - ((t.getDay() + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(mon); d.setDate(mon.getDate() + i);
-      return { dow: d.toLocaleDateString(this.i18n.locale, { weekday: 'short' }), day: d.getDate(), today: d.toDateString() === t.toDateString(), monday: i === 0 };
+      return { dow: d.toLocaleDateString(this.i18n.locale, { weekday: 'short' }), day: d.getDate(), today: d.toDateString() === t.toDateString(), report: toIso(d) === rd };
     });
   });
 

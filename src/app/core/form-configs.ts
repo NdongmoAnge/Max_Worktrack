@@ -6,7 +6,7 @@ export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'mult
 export interface Field {
   key: string; label: string; type: FieldType; required?: boolean;
   options?: string[] | ((u: User) => string[]);
-  placeholder?: string; hint?: string; readonly?: boolean; createOnly?: boolean; requiredMsg?: string;
+  placeholder?: string; hint?: string; readonly?: boolean; createOnly?: boolean; requiredMsg?: string; defaultValue?: string;
 }
 
 export interface FormConfig {
@@ -32,6 +32,7 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
       { key: 'name', label: 'Enterprise Name', type: 'text', required: true, requiredMsg: 'Please enter the enterprise name.' },
       { key: 'email', label: 'Enterprise Email', type: 'email', required: true, requiredMsg: 'Please enter the enterprise email.' },
       { key: 'phone', label: 'Phone Number', type: 'tel', placeholder: '+237 ...' },
+      { key: 'defaultLanguage', label: 'Default language', type: 'select', required: true, options: ['English', 'French'], defaultValue: 'English', hint: 'Used for all users of this enterprise until they choose their own language.', requiredMsg: 'Please select the default language.' },
       { key: 'logo', label: 'Enterprise Logo', type: 'file', hint: 'Optional. PNG or JPG.' },
       { key: 'address', label: 'Address', type: 'textarea' },
       { key: 'adminFirstName', label: 'Company Admin First Name', type: 'text', required: true, createOnly: true, requiredMsg: 'Please enter the administrator\'s first name.' },
@@ -50,16 +51,15 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
     ]
   },
   user: {
-    title: 'Create User', editTitle: 'Edit User', crumbs: ['Users', 'Create'], submitLabel: 'Save User', listLink: '{base}/users',
-    successMessage: 'User saved successfully. An invitation email has been initiated.', updateMessage: 'User updated successfully.',
+    title: 'Invite User', editTitle: 'Edit User', crumbs: ['Users', 'Invite'], submitLabel: 'Send Invitation', editSubmitLabel: 'Save changes', listLink: '{base}/users',
+    successMessage: 'Invitation sent by email. The user can now activate the account.', updateMessage: 'User updated successfully.',
     fields: [
       { key: 'firstName', label: 'First Name', type: 'text', required: true, requiredMsg: 'Please enter the first name.' },
       { key: 'lastName', label: 'Last Name', type: 'text', required: true, requiredMsg: 'Please enter the last name.' },
-      { key: 'email', label: 'Email', type: 'email', required: true, requiredMsg: 'Please enter the email address.' },
+      { key: 'email', label: 'Email', type: 'email', required: true, requiredMsg: 'Please enter the email address.', hint: 'The invitation is sent to this email address.' },
       { key: 'role', label: 'Role', type: 'select', required: true, options: ['Branch Manager', 'Employee', 'Intern'], requiredMsg: 'Please select a role.' },
       { key: 'branch', label: 'Branch', type: 'select', required: true, options: branchNames, requiredMsg: 'Please select a branch.' },
-      { key: 'department', label: 'Department', type: 'select', required: true, options: deptNames, requiredMsg: 'Please select a department.' },
-      { key: 'profilePicture', label: 'Profile Picture', type: 'file' }
+      { key: 'department', label: 'Department', type: 'select', required: true, options: deptNames, requiredMsg: 'Please select a department.' }
     ]
   },
   branch: {

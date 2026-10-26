@@ -12,7 +12,7 @@ export const authGuard: CanActivateFn = () => {
 export const homeGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.user() ? router.createUrlTree([auth.base(), 'dashboard']) : router.createUrlTree(['/login']);
+  return auth.user() ? router.createUrlTree([auth.base(), 'dashboard']) : router.createUrlTree(['/welcome']);
 };
 
 export const roleGuard = (...roles: Role[]): CanActivateFn => () => {

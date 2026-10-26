@@ -61,7 +61,11 @@ type Decision = 'Approved' | 'Rejected' | 'Needs Correction';
                 <app-status-badge [status]="e.activityStatus" />
               </div>
               <p class="entry-desc">{{ e.description }}</p>
-              <small class="muted">{{ e.startDate }} → {{ e.endDate }}</small>
+              <dl class="entry-dates">
+                <div><dt>{{ 'Start date' | t }}</dt><dd>{{ e.startDate }}</dd></div>
+                <div><dt>{{ 'End date' | t }}</dt><dd>{{ e.endDate }}</dd></div>
+                <div><dt>{{ 'Actual end date' | t }}</dt><dd>{{ e.actualEndDate || '—' }}</dd></div>
+              </dl>
             </div>
           }
         </div>

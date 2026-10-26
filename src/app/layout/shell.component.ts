@@ -7,15 +7,20 @@ import { ROLE_LABELS } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 import { TPipe } from '../shared/t.pipe';
 import { LangSwitchComponent } from '../shared/lang-switch.component';
+import { AvatarComponent } from '../shared/avatar.component';
+import { LOGO, LOGO_DARK } from '../core/brand';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [TPipe, LangSwitchComponent, RouterOutlet, RouterLink, RouterLinkActive, IconComponent],
+  imports: [TPipe, LangSwitchComponent, AvatarComponent, RouterOutlet, RouterLink, RouterLinkActive, IconComponent],
   template: `
     <div class="shell">
       <aside class="sidebar" [class.open]="open()" [attr.aria-label]="'Main navigation' | t">
-        <div class="logo">{{ 'ReportFlow' | t }}</div>
+        <div class="side-top">
+          <a class="brand-link" [routerLink]="[auth.base(), 'dashboard']" (click)="open.set(false)"><img class="brand-logo" [src]="logoDark" alt="Max WorkTrack" /></a>
+          <button type="button" class="icon-btn drawer-close" (click)="open.set(false)" [attr.aria-label]="'Close menu' | t"><app-icon name="x" /></button>
+        </div>
         <nav class="nav">
           @for (item of nav(); track item.path) {
             <a [routerLink]="[auth.base(), item.path]" routerLinkActive="active" (click)="open.set(false)">
@@ -23,39 +28,26 @@ import { LangSwitchComponent } from '../shared/lang-switch.component';
             </a>
           }
         </nav>
-        <button type="button" class="btn btn-logout" (click)="logout()"><app-icon name="logout" /> {{ 'LOGOUT' | t }}</button>
+        <div class="side-bottom">
+          <app-lang-switch />
+          <a class="side-user" [routerLink]="[auth.base(), 'profile']" (click)="open.set(false)">
+            <app-avatar />
+            <span class="side-user-text"><strong>{{ auth.fullName() }}</strong><small>{{ roleLabel() | t }}</small></span>
+          </a>
+          <button type="button" class="btn btn-logout" (click)="logout()"><app-icon name="logout" /> {{ 'LOGOUT' | t }}</button>
+        </div>
       </aside>
       @if (open()) { <div class="sidebar-backdrop" (click)="open.set(false)"></div> }
 
       <div class="main">
         <header class="topbar">
-          <button type="button" class="icon-btn menu-btn" (click)="open.set(!open())" [attr.aria-label]="'Open navigation menu' | t"><app-icon name="menu" /></button>
-          <form class="search-pill" (submit)="search($event, q.value)">
-            <app-icon name="search" />
-            <input #q type="search" [placeholder]="'Search' | t" [attr.aria-label]="'Search' | t" />
-          </form>
-          <div class="top-right">
-            <app-lang-switch />
-            <a class="icon-btn" [routerLink]="[auth.base(), 'dashboard']" [attr.aria-label]="'Go to dashboard' | t" [attr.title]="'Dashboard' | t"><app-icon name="home" /></a>
-            @if (hasNotifications()) {
-              <a class="icon-btn" [routerLink]="[auth.base(), 'notifications']" [attr.aria-label]="'Notifications' | t" [attr.title]="'Notifications' | t"><app-icon name="bell" /><i class="notif-dot"></i></a>
-            }
-            <span class="vbar"></span>
-            <div class="user-menu">
-              <button type="button" class="user-btn" (click)="menu.set(!menu())" [attr.aria-expanded]="menu()" aria-haspopup="menu">
-                <span class="user-name">{{ auth.fullName() }}</span>
-                <span class="avatar">{{ auth.initials() }}</span>
-                <app-icon name="chevron-down" />
-              </button>
-              @if (menu()) {
-                <div class="dropdown" role="menu">
-                  <div class="dropdown-head"><strong>{{ auth.fullName() }}</strong><small>{{ roleLabel() | t }}</small></div>
-                  <a role="menuitem" [routerLink]="[auth.base(), 'profile']" (click)="menu.set(false)"><app-icon name="user" /> {{ 'Profile Settings' | t }}</a>
-                  <button type="button" role="menuitem" (click)="logout()"><app-icon name="logout" /> {{ 'Logout' | t }}</button>
-                </div>
-              }
-            </div>
-          </div>
+          <button type="button" class="icon-btn menu-btn" (click)="open.set(true)" [attr.aria-label]="'Open navigation menu' | t" [attr.aria-expanded]="open()"><app-icon name="menu" /></button>
+          <a class="top-logo" [routerLink]="[auth.base(), 'dashboard']"><img [src]="logo" alt="Max WorkTrack" /></a>
+          <span class="top-context"><app-icon name="building" /> {{ auth.user()?.enterprise }}@if (auth.user()?.branch) { · {{ auth.user()?.branch | t }} }</span>
+          <a class="top-profile" [routerLink]="[auth.base(), 'profile']" [attr.title]="'Profile Settings' | t">
+            <span class="top-profile-text"><strong>{{ auth.fullName() }}</strong><small>{{ 'Profile Settings' | t }}</small></span>
+            <app-avatar />
+          </a>
         </header>
         <main class="content"><router-outlet /></main>
       </div>
@@ -65,21 +57,15 @@ export class ShellComponent {
   auth = inject(AuthService);
   private router = inject(Router);
   private toast = inject(ToastService);
+  logo = LOGO;
+  logoDark = LOGO_DARK;
   open = signal(false);
-  menu = signal(false);
   nav = computed(() => NAV[this.auth.role()!] ?? []);
   roleLabel = computed(() => ROLE_LABELS[this.auth.role()!] ?? '');
-  hasNotifications = computed(() => this.auth.role() === 'employee' || this.auth.role() === 'intern');
 
-  search(e: Event, v: string) {
-    e.preventDefault();
-    const target = this.nav()[1]?.path ?? 'dashboard';
-    this.router.navigate([this.auth.base(), target], { queryParams: { q: v.trim() || null } });
-  }
   logout() {
     this.auth.logout();
-    this.menu.set(false);
-    this.router.navigateByUrl('/login');
+    this.router.navigateByUrl('/welcome');
     this.toast.info('You have been signed out.');
   }
 }

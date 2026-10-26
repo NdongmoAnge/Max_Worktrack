@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { TPipe } from '../shared/t.pipe';
+import { LOGO_WHITE } from '../core/brand';
 import { LangSwitchComponent } from '../shared/lang-switch.component';
 import { RouterLink } from '@angular/router';
 
@@ -13,13 +14,14 @@ import { RouterLink } from '@angular/router';
       <div class="auth-card">
         <aside class="auth-left">
           <span class="shape s1"></span><span class="shape s2"></span><span class="shape s3"></span>
-          <div class="auth-brand">{{ 'ReportFlow' | t }}</div>
+          <img class="auth-logo" [src]="logoWhite" alt="Max WorkTrack" />
           <nav class="auth-tabs" [attr.aria-label]="'Authentication' | t">
             <a routerLink="/login" class="tab" [class.active]="active === 'login'">{{ 'LOGIN' | t }}</a>
             <a routerLink="/accept-invitation" class="tab" [class.active]="active === 'activate'">{{ 'ACTIVATE' | t }}</a>
           </nav>
         </aside>
         <section class="auth-right">
+          <a class="auth-back" routerLink="/welcome"><span aria-hidden="true">←</span> {{ 'Back to welcome page' | t }}</a>
           <app-lang-switch class="auth-lang" />
           <div class="auth-main"><ng-content /></div>
           <footer class="auth-foot"><ng-content select="[footer]" /></footer>
@@ -28,5 +30,6 @@ import { RouterLink } from '@angular/router';
     </div>`
 })
 export class AuthCardComponent {
+  logoWhite = LOGO_WHITE;
   @Input() active: 'login' | 'activate' | 'none' = 'login';
 }

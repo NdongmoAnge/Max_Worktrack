@@ -16,7 +16,7 @@ import { TPipe } from '../shared/t.pipe';
       <h1 class="auth-title">{{ 'FORGOT PASSWORD' | t }}</h1>
       @if (sent()) {
         <div class="alert alert-info" role="status"><app-icon name="info" /> {{ 'If an account exists for that email, a reset link has been sent.' | t }}</div>
-        <a routerLink="/reset-password" class="btn btn-pill">{{ 'Open reset page (demo)' | t }}</a>
+        <a routerLink="/login" class="btn btn-pill">{{ 'Back to login' | t }}</a>
       } @else {
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <div class="u-field"><app-icon name="mail" /><input type="email" formControlName="email" [placeholder]="'Email' | t" [attr.aria-label]="'Email' | t" /></div>
@@ -66,7 +66,7 @@ export class ForgotPasswordComponent {
           <button class="btn btn-pill" type="submit" [disabled]="busy()">@if (busy()) { <span class="spinner spinner-light"></span> } {{ 'Reset' | t }}</button>
         </div>
       </form>
-      <div footer class="demo-row"><span>Use at least 8 characters.</span></div>
+      <div footer class="demo-row"><span>{{ 'Use at least 8 characters.' | t }}</span></div>
     </app-auth-card>`
 })
 export class ResetPasswordComponent {

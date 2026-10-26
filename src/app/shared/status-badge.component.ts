@@ -3,7 +3,7 @@ import { TPipe } from './t.pipe';
 
 
 const MAP: Record<string, string> = {
-  Active: 'ok', Completed: 'ok', Approved: 'ok', Accepted: 'ok', Submitted: 'ok',
+  Active: 'ok', Completed: 'ok', Approved: 'ok', Accepted: 'ok', Submitted: 'ok', 'Open today': 'ok', 'Closed today': 'neutral',
   Pending: 'warn', 'Awaiting Review': 'warn', 'Needs Correction': 'warn', 'On Hold': 'warn', Paused: 'warn',
   Suspended: 'bad', Rejected: 'bad', Delayed: 'bad', Expired: 'bad', Revoked: 'bad', Cancelled: 'bad', Inactive: 'bad', Missing: 'bad',
   'In Progress': 'info', 'Not Started': 'neutral'

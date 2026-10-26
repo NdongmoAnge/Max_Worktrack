@@ -7,8 +7,8 @@ import { ToastService } from '../core/toast.service';
 import { ReportingService } from '../core/reporting.service';
 import { I18nService } from '../core/i18n.service';
 import { Field, FormConfig, FORM_CONFIGS } from '../core/form-configs';
-import { PROJECTS, REPORTS, lookup } from '../core/mock-data';
-import { canEditReport, editDeadline, isoToday, summarizeEntries } from '../core/report-rules';
+import { ACCOUNTS, ENTERPRISES, INVITATIONS, PROJECTS, REPORTS, USERS, effectiveStatus, lookup, newToken, saveEnterprises, saveInvitations, saveUsers } from '../core/mock-data';
+import { canEditReport, editDeadline, isoToday, summarizeEntries, toIso } from '../core/report-rules';
 import { PageHeaderComponent } from '../shared/page-header.component';
 import { IconComponent } from '../shared/icon.component';
 import { TPipe } from '../shared/t.pipe';
@@ -26,7 +26,7 @@ import { TPipe } from '../shared/t.pipe';
           <div class="alert alert-info" role="status"><app-icon name="info" /> {{ 'You can edit this report until {date}.' | t: { date: deadline } }} {{ 'Editing a report sends it back for review.' | t }}</div>
         } @else {
           @if (closed) {
-            <div class="alert alert-warning" role="status"><app-icon name="alert" /> {{ 'Weekly report submission is currently closed. Please return on Monday to submit your report.' | t }}</div>
+            <div class="alert alert-warning" role="status"><app-icon name="alert" /> {{ 'Weekly report submission is currently closed. Your next report date is {date}.' | t: { date: nextDateLabel } }}</div>
           } @else {
             <div class="alert alert-info" role="status"><app-icon name="info" /> {{ 'The reporting period is open. You can submit your weekly report now.' | t }}</div>
           }
@@ -72,6 +72,7 @@ import { TPipe } from '../shared/t.pipe';
                               <option value="">{{ 'Select...' | t }}</option>
                               @for (o of opts(f); track o) { <option [value]="o" [disabled]="usedElsewhere(o, i)">{{ o | t }}</option> }
                             </select>
+                            @if (g.get('project')?.disabled) { <small class="hint">{{ 'The project of a submitted activity cannot be changed.' | t }}</small> }
                             @if (entryErr(g, 'project')) { <small class="error" role="alert">{{ entryErr(g, 'project') }}</small> }
                           </div>
                           <div class="field">
@@ -83,14 +84,18 @@ import { TPipe } from '../shared/t.pipe';
                             @if (entryErr(g, 'activityStatus')) { <small class="error" role="alert">{{ entryErr(g, 'activityStatus') }}</small> }
                           </div>
                           <div class="field">
-                            <label [attr.for]="'e' + i + '-start'">{{ 'Start Date' | t }} <span class="req" aria-hidden="true">*</span></label>
-                            <input [id]="'e' + i + '-start'" type="date" formControlName="startDate" />
-                            @if (entryErr(g, 'startDate')) { <small class="error" role="alert">{{ entryErr(g, 'startDate') }}</small> }
+                            <label [attr.for]="'e' + i + '-start'">{{ 'Start Date' | t }}</label>
+                            <input [id]="'e' + i + '-start'" type="date" formControlName="startDate" class="locked" />
                           </div>
                           <div class="field">
-                            <label [attr.for]="'e' + i + '-end'">{{ 'End Date' | t }} <span class="req" aria-hidden="true">*</span></label>
-                            <input [id]="'e' + i + '-end'" type="date" formControlName="endDate" />
-                            @if (entryErr(g, 'endDate')) { <small class="error" role="alert">{{ entryErr(g, 'endDate') }}</small> }
+                            <label [attr.for]="'e' + i + '-end'">{{ 'End Date' | t }}</label>
+                            <input [id]="'e' + i + '-end'" type="date" formControlName="endDate" class="locked" />
+                            <small class="hint">{{ 'Start and end dates are set by the system for this reporting period.' | t }}</small>
+                          </div>
+                          <div class="field">
+                            <label [attr.for]="'e' + i + '-actual'">{{ 'Actual End Date' | t }} <span class="req" aria-hidden="true">*</span></label>
+                            <input [id]="'e' + i + '-actual'" type="date" formControlName="actualEndDate" [min]="g.get('startDate')?.value" [max]="periodEnd" />
+                            @if (entryErr(g, 'actualEndDate')) { <small class="error" role="alert">{{ entryErr(g, 'actualEndDate') }}</small> }
                           </div>
                           <div class="field full">
                             <label [attr.for]="'e' + i + '-desc'">{{ 'Change Description' | t }} <span class="req" aria-hidden="true">*</span></label>
@@ -148,9 +153,10 @@ export class FormPageComponent implements OnInit {
   fileNames: Record<string, string> = {};
 
   get title() { return this.edit && this.cfg.editTitle ? this.cfg.editTitle : this.cfg.title; }
-  get crumbs() { return this.cfg.crumbs.map(c => (this.edit && (c === 'Create' || c === 'Submit') ? 'Edit' : c)); }
+  get crumbs() { return this.cfg.crumbs.map(c => (this.edit && (c === 'Create' || c === 'Submit' || c === 'Invite') ? 'Edit' : c)); }
   /** New weekly reports can only be submitted while the reporting period is open; edits are limited by the week rule instead. */
   get closed() { return !!this.cfg?.mondayOnly && !this.edit && !this.reporting.open(); }
+  get nextDateLabel() { return new Date(this.reporting.nextDate() + 'T00:00:00').toLocaleDateString(this.i18n.locale, { weekday: 'long', day: 'numeric', month: 'long' }); }
   get deadline() { return this.record ? editDeadline(this.record, this.i18n.locale) : ''; }
 
   ngOnInit() {
@@ -176,7 +182,7 @@ export class FormPageComponent implements OnInit {
         controls[f.key] = new FormArray(rows.map((e: any) => this.entryGroup(e)));
         continue;
       }
-      let v: any = this.record ? this.record[f.key] : '';
+      let v: any = this.record ? this.record[f.key] : f.defaultValue ?? '';
       if (f.type === 'multiselect') v = this.record?.[f.key] ?? [];
       if (f.key === 'employeeName') v = this.auth.fullName();
       const validators = [];
@@ -194,16 +200,24 @@ export class FormPageComponent implements OnInit {
   statuses = ['Not Started', 'In Progress', 'Completed', 'On Hold', 'Cancelled'];
 
   entriesArr(): FormArray { return this.form.get('entries') as FormArray; }
+  /** Reporting period: fixed by the system (7 days ending today). Employees cannot change these dates. */
+  periodEnd = isoToday();
+  periodStart = toIso(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 6));
+
   private entryGroup(e: any = {}): FormGroup {
+    const lockProject = this.edit && !!e.project; // the project (activity) of a submitted entry cannot be changed
     return new FormGroup({
-      project: new FormControl(e.project ?? '', Validators.required),
+      project: new FormControl({ value: e.project ?? '', disabled: lockProject }, Validators.required),
       activityStatus: new FormControl(e.activityStatus ?? '', Validators.required),
-      startDate: new FormControl(e.startDate ?? '', Validators.required),
-      endDate: new FormControl(e.endDate ?? '', Validators.required),
+      startDate: new FormControl({ value: e.startDate ?? this.periodStart, disabled: true }),
+      endDate: new FormControl({ value: e.endDate ?? this.periodEnd, disabled: true }),
+      actualEndDate: new FormControl(e.actualEndDate ?? '', Validators.required),
       description: new FormControl(e.description ?? '', Validators.required)
     }, { validators: [(g: AbstractControl): ValidationErrors | null => {
-      const s = g.get('startDate')?.value, en = g.get('endDate')?.value;
-      return s && en && en < s ? { range: true } : null;
+      const start = g.get('startDate')?.value, actual = g.get('actualEndDate')?.value;
+      if (actual && start && actual < start) return { actualBeforeStart: true };
+      if (actual && actual > this.periodEnd) return { actualFuture: true };
+      return null;
     }] });
   }
   private activitiesField() { return this.fields.find(f => f.type === 'activities')!; }
@@ -216,7 +230,12 @@ export class FormPageComponent implements OnInit {
   entryErr(g: AbstractControl, key: string): string {
     const c = g.get(key);
     if (!c || !(c.touched || this.submitted)) return '';
-    if (key === 'endDate' && g.hasError('range')) return this.i18n.t('The end date cannot be earlier than the start date.');
+    if (key === 'actualEndDate') {
+      if (c.errors?.['required']) return this.i18n.t('Please select the actual end date.');
+      if (g.hasError('actualBeforeStart')) return this.i18n.t('The actual end date cannot be earlier than the start date.');
+      if (g.hasError('actualFuture')) return this.i18n.t('The actual end date cannot be in the future.');
+      return '';
+    }
     if (!c.errors?.['required']) return '';
     const msgs: Record<string, string> = {
       project: 'Please select a project.', activityStatus: 'Please select the activity status.',
@@ -268,7 +287,7 @@ export class FormPageComponent implements OnInit {
     const v = this.form.getRawValue();
     const entries = v.entries.map((e: any) => ({
       project: e.project, projectId: PROJECTS.find(p => p.name === e.project)?.id ?? '',
-      description: e.description, startDate: e.startDate, endDate: e.endDate, activityStatus: e.activityStatus
+      description: e.description, startDate: e.startDate, endDate: e.endDate, actualEndDate: e.actualEndDate, activityStatus: e.activityStatus
     }));
     const data = { entries, ...summarizeEntries(entries) };
     if (this.edit && this.record) {
@@ -277,6 +296,45 @@ export class FormPageComponent implements OnInit {
       const next = Math.max(...REPORTS.map(r => parseInt(String(r.id).slice(4), 10))) + 1;
       REPORTS.unshift({ id: 'RPT-' + next, employee: this.auth.fullName(), ...data, reviewStatus: 'Awaiting Review', submittedAt: isoToday(), comments: [] });
     }
+  }
+
+  /** Super Admin: invite a Company Admin for an existing enterprise. */
+  private saveInvitation() {
+    const v = this.form.getRawValue();
+    INVITATIONS.unshift({ id: Math.max(...INVITATIONS.map(i => i.id)) + 1, token: newToken(), role: 'Company Admin', enterprise: v.enterprise, invitee: v.firstName + ' ' + v.lastName, firstName: v.firstName, lastName: v.lastName, email: v.email, status: 'Pending', invitedAt: isoToday(), expiresAt: toIso(new Date(Date.now() + 7 * 86400000)), invitedBy: this.auth.fullName() });
+    saveInvitations();
+  }
+
+  /** Company Admin: invite a Branch Manager, Employee or Intern (edit just updates the record). Returns false when the e-mail is already used. */
+  private saveUser(): boolean {
+    const v = this.form.getRawValue();
+    if (this.edit && this.record) {
+      Object.assign(this.record, { firstName: v.firstName, lastName: v.lastName, name: v.firstName + ' ' + v.lastName, email: v.email, role: v.role, branch: v.branch, department: v.department });
+      saveUsers();
+      return true;
+    }
+    const email = String(v.email).trim().toLowerCase();
+    const taken = USERS.some(u => String(u.email).toLowerCase() === email) || ACCOUNTS.some(a => a.email.toLowerCase() === email)
+      || INVITATIONS.some(i => String(i.email).toLowerCase() === email && effectiveStatus(i) === 'Pending');
+    if (taken) { this.toast.error('This email address already has an account or a pending invitation.'); return false; }
+    const name = v.firstName + ' ' + v.lastName;
+    USERS.push({ id: Math.max(...USERS.map(u => u.id)) + 1, firstName: v.firstName, lastName: v.lastName, name, email, role: v.role, branch: v.branch, department: v.department, status: 'Active', invitation: 'Pending', weeklyReport: 'Missing' });
+    INVITATIONS.unshift({ id: Math.max(...INVITATIONS.map(i => i.id)) + 1, token: newToken(), enterprise: this.auth.user()!.enterprise, invitee: name, firstName: v.firstName, lastName: v.lastName, email, role: v.role, branch: v.branch, department: v.department, status: 'Pending', invitedAt: isoToday(), expiresAt: toIso(new Date(Date.now() + 7 * 86400000)), invitedBy: this.auth.fullName() });
+    saveUsers(); saveInvitations();
+    return true;
+  }
+
+  private saveEnterprise() {
+    const v = this.form.getRawValue();
+    if (this.edit && this.record) {
+      Object.assign(this.record, { name: v.name, email: v.email, phone: v.phone, address: v.address, defaultLanguage: v.defaultLanguage });
+    } else {
+      const id = Math.max(...ENTERPRISES.map(e => e.id)) + 1;
+      ENTERPRISES.push({ id, name: v.name, defaultLanguage: v.defaultLanguage, email: v.email, phone: v.phone, address: v.address, status: 'Active', createdAt: isoToday(), adminName: v.adminFirstName + ' ' + v.adminLastName });
+      INVITATIONS.unshift({ id: Math.max(...INVITATIONS.map(i => i.id)) + 1, token: newToken(), role: 'Company Admin', enterprise: v.name, invitee: v.adminFirstName + ' ' + v.adminLastName, firstName: v.adminFirstName, lastName: v.adminLastName, email: v.adminEmail, status: 'Pending', invitedAt: isoToday(), expiresAt: toIso(new Date(Date.now() + 7 * 86400000)), invitedBy: this.auth.fullName() });
+      saveInvitations();
+    }
+    saveEnterprises();
   }
 
   async submit() {
@@ -301,6 +359,9 @@ export class FormPageComponent implements OnInit {
       return;
     }
     if (this.entity === 'report') this.saveReport();
+    if (this.entity === 'enterprise') this.saveEnterprise();
+    if (this.entity === 'invitation') this.saveInvitation();
+    if (this.entity === 'user' && !this.saveUser()) { this.submitting.set(false); return; }
     this.submitting.set(false);
     this.form.markAsPristine();
     this.toast.success(this.edit ? this.cfg.updateMessage || 'Changes saved successfully.' : this.cfg.successMessage);

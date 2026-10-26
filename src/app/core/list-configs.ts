@@ -31,7 +31,7 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
   enterprises: {
     title: 'Enterprises', crumbs: ['Enterprises'], searchPlaceholder: 'Search by enterprise name...', emptyMessage: 'No enterprises found. Create your first enterprise to get started.',
     createLink: '{base}/enterprises/new', createLabel: 'Create Enterprise',
-    columns: [{ key: 'name', label: 'Enterprise name' }, { key: 'email', label: 'Email' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'createdAt', label: 'Date created' }],
+    columns: [{ key: 'name', label: 'Enterprise name' }, { key: 'email', label: 'Email' }, { key: 'defaultLanguage', label: 'Default language' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'createdAt', label: 'Date created' }],
     filters: [status(['Active', 'Suspended'])],
     actions: [view('{base}/enterprises/{id}'), edit('{base}/enterprises/{id}/edit'),
       { key: 'suspend', label: 'Suspend', icon: 'pause', danger: true, when: r => r.status === 'Active' },
@@ -43,6 +43,17 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
     columns: [{ key: 'enterprise', label: 'Enterprise' }, { key: 'invitee', label: 'Invitee' }, { key: 'email', label: 'Invitee email' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'invitedAt', label: 'Invitation date' }, { key: 'expiresAt', label: 'Expires' }],
     filters: [status(['Pending', 'Accepted', 'Expired', 'Revoked'])],
     actions: [
+      { key: 'copy-link', label: 'Copy link', icon: 'upload', when: r => r.status === 'Pending' },
+      { key: 'resend', label: 'Resend', icon: 'refresh', when: r => r.status === 'Pending' || r.status === 'Expired' },
+      { key: 'revoke', label: 'Revoke', icon: 'x', danger: true, when: r => r.status === 'Pending' }]
+  },
+  'user-invitations': {
+    title: 'User Invitations', crumbs: ['Invitations'], searchPlaceholder: 'Search invitations...', emptyMessage: 'No invitations found.',
+    createLink: '{base}/users/new', createLabel: 'Invite User',
+    columns: [{ key: 'invitee', label: 'Invitee' }, { key: 'email', label: 'Invitee email' }, { key: 'role', label: 'Role' }, { key: 'branch', label: 'Branch' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'invitedAt', label: 'Invitation date' }, { key: 'expiresAt', label: 'Expires' }],
+    filters: [{ key: 'role', label: 'Role', options: ['Branch Manager', 'Employee', 'Intern'] }, status(['Pending', 'Accepted', 'Expired', 'Revoked'])],
+    actions: [
+      { key: 'copy-link', label: 'Copy link', icon: 'upload', when: r => r.status === 'Pending' },
       { key: 'resend', label: 'Resend', icon: 'refresh', when: r => r.status === 'Pending' || r.status === 'Expired' },
       { key: 'revoke', label: 'Revoke', icon: 'x', danger: true, when: r => r.status === 'Pending' }]
   },
@@ -56,8 +67,8 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
     columns: [{ key: 'time', label: 'Date and time' }, { key: 'actor', label: 'Performed by' }, { key: 'action', label: 'Action' }, { key: 'target', label: 'Target' }]
   },
   users: {
-    title: 'User Management', crumbs: ['Users'], searchPlaceholder: 'Search by name or email...', emptyMessage: 'No users found. Add your first user to get started.',
-    createLink: '{base}/users/new', createLabel: 'Add User',
+    title: 'User Management', crumbs: ['Users'], searchPlaceholder: 'Search by name or email...', emptyMessage: 'No users found. Invite your first user to get started.',
+    createLink: '{base}/users/new', createLabel: 'Invite User',
     columns: [{ key: 'name', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role' }, { key: 'branch', label: 'Branch' }, { key: 'department', label: 'Department' }, { key: 'status', label: 'Account', type: 'badge' }, { key: 'invitation', label: 'Invitation', type: 'badge' }],
     filters: [{ key: 'role', label: 'Role', options: ['Branch Manager', 'Employee', 'Intern'] }, { key: 'branch', label: 'Branch', options: branchNames }, { key: 'department', label: 'Department', options: deptNames }, status(['Active', 'Inactive'])],
     actions: [view('{base}/users/{id}'), edit('{base}/users/{id}/edit'),

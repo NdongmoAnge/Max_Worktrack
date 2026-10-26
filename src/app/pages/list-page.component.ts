@@ -4,7 +4,8 @@ import { AuthService } from '../core/auth.service';
 import { ConfirmService } from '../core/confirm.service';
 import { ToastService } from '../core/toast.service';
 import { LIST_CONFIGS, ListConfig } from '../core/list-configs';
-import { dataFor } from '../core/mock-data';
+import { ENTERPRISES, INVITATIONS, USERS, dataFor, saveEnterprises, saveInvitations, saveUsers } from '../core/mock-data';
+import { isoToday, toIso } from '../core/report-rules';
 import { PageHeaderComponent } from '../shared/page-header.component';
 import { DataTableComponent } from '../shared/data-table.component';
 import { IconComponent } from '../shared/icon.component';
@@ -54,7 +55,19 @@ export class ListPageComponent implements OnInit {
     return t.replace('{base}', this.auth.base()).replace('{id}', row ? String(row.id) : '');
   }
 
-  private patch(row: any, changes: any) { this.rows.update(rs => rs.map(r => (r === row ? { ...r, ...changes } : r))); }
+  private patch(row: any, changes: any) {
+    this.rows.update(rs => rs.map(r => (r === row ? { ...r, ...changes } : r)));
+    if (this.entity === 'enterprises') { // keep enterprise status in the sample storage
+      const src = ENTERPRISES.find(e => e.id === row.id);
+      if (src) { Object.assign(src, changes); saveEnterprises(); }
+    }
+    if (this.entity === 'invitations' || this.entity === 'user-invitations') { // keep invitation status in the sample storage
+      const inv = INVITATIONS.find(i => i.id === row.id);
+      if (inv) { Object.assign(inv, changes); saveInvitations(); }
+      const u = USERS.find(x => String(x.email).toLowerCase() === String(row.email).toLowerCase());
+      if (u && changes.status) { u.invitation = changes.status; saveUsers(); }
+    }
+  }
 
   async onAction(e: { key: string; row: any }) {
     const a = this.cfg.actions?.find(x => x.key === e.key);
@@ -75,8 +88,13 @@ export class ListPageComponent implements OnInit {
         this.patch(e.row, { status: 'Active' }); this.toast.success(this.i18n.t('{name} is now active.', { name }));
         break;
       case 'resend':
-        this.patch(e.row, { status: 'Pending' }); this.toast.info(this.i18n.t('Invitation resent to {email}.', { email: e.row.email }));
+        this.patch(e.row, { status: 'Pending', invitedAt: isoToday(), expiresAt: toIso(new Date(Date.now() + 7 * 86400000)) }); this.toast.info(this.i18n.t('Invitation resent to {email}.', { email: e.row.email }));
         break;
+      case 'copy-link': {
+        const link = location.origin + '/accept-invitation?token=' + e.row.token;
+        try { await navigator.clipboard.writeText(link); this.toast.success('Invitation link copied.'); } catch { this.toast.info(link); }
+        break;
+      }
       case 'revoke':
         if (await this.confirm.ask({ title: 'Revoke invitation', message: this.i18n.t('Are you sure you want to revoke the invitation sent to {email}?', { email: e.row.email }), confirmLabel: 'Revoke', danger: true })) {
           this.patch(e.row, { status: 'Revoked' }); this.toast.warning('Invitation revoked.');

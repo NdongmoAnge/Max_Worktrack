@@ -33,7 +33,7 @@ export function nextMonday(locale = 'en-GB'): string {
   return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) => string = s => s, locale = 'en-GB'): DashConfig {
+export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) => string = s => s, locale = 'en-GB', reportDate?: string): DashConfig {
   const name = user.firstName + ' ' + user.lastName;
   const months = monthLabels(locale);
 
@@ -82,7 +82,7 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
         columns: [{ key: 'id', label: 'ID' }, { key: 'name', label: 'Project' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'plannedFinish', label: 'Planned finish' }],
         rows: PROJECTS.slice(0, 4) },
       list: { title: 'Pending review', empty: 'No reports are waiting for review.', items: pendingList(REPORTS, t) },
-      actions: [{ label: 'Add User', icon: 'plus', link: '{base}/users/new' }, { label: 'Create Project', icon: 'folder', link: '{base}/projects/new' }, { label: 'Export Reports', icon: 'download', link: '{base}/export' }]
+      actions: [{ label: 'Invite User', icon: 'plus', link: '{base}/users/new' }, { label: 'Create Project', icon: 'folder', link: '{base}/projects/new' }, { label: 'Reporting Schedule', icon: 'calendar', link: '{base}/schedule' }, { label: 'Export Reports', icon: 'download', link: '{base}/export' }]
     };
   }
 
@@ -113,7 +113,7 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
         columns: [{ key: 'id', label: 'Report' }, { key: 'employee', label: 'Employee' }, { key: 'projects', label: 'Projects', type: 'tags' }, { key: 'submittedAt', label: 'Submitted' }],
         rows: REPORTS.filter(r => r.reviewStatus === 'Awaiting Review') },
       list: { title: 'Employees who have not submitted', empty: 'Everyone has submitted this week.', items: miss.map(u => ({ primary: u.name, secondary: t(u.role) + ' · ' + t(u.department), badge: 'Missing' })) },
-      actions: [{ label: 'Report Reviews', icon: 'check-square', link: '{base}/reviews' }, { label: 'Project Progress', icon: 'chart', link: '{base}/progress' }]
+      actions: [{ label: 'Reporting Schedule', icon: 'calendar', link: '{base}/schedule' }, { label: 'Report Reviews', icon: 'check-square', link: '{base}/reviews' }, { label: 'Project Progress', icon: 'chart', link: '{base}/progress' }]
     };
   }
 
@@ -127,7 +127,7 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
     stats: [
       { label: 'Assigned projects', value: myProjects.length, icon: 'folder' },
       { label: isIntern ? 'Activities completed' : 'Projects in progress', value: isIntern ? cnt(mine, r => r.activityStatus === 'Completed') : cnt(myProjects, p => p.status === 'In Progress'), icon: 'activity' },
-      { label: 'Next reporting date', value: nextMonday(locale), icon: 'clock', sub: 'Reports open on Mondays', highlight: true },
+      { label: 'Next reporting date', value: reportDate ? new Date(reportDate + 'T00:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) : nextMonday(locale), icon: 'clock', sub: 'Set by your branch manager', highlight: true },
       { label: isIntern ? 'Weekly reports submitted' : 'Reports submitted', value: mine.length, icon: 'send' },
       { label: isIntern ? 'Awaiting approval' : 'Reports approved', value: isIntern ? cnt(mine, r => r.reviewStatus === 'Awaiting Review') : cnt(mine, r => r.reviewStatus === 'Approved'), icon: 'check' },
       { label: 'Needing correction', value: cnt(mine, r => r.reviewStatus === 'Needs Correction'), icon: 'refresh' },

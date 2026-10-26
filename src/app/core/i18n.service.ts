@@ -7,23 +7,43 @@ export type Lang = 'en' | 'fr';
 @Injectable({ providedIn: 'root' })
 export class I18nService {
   lang = signal<Lang>(this.initial());
+  /** 'default' = follow the company's default language chosen by the Super Admin. */
+  pref = signal<'default' | Lang>('default');
+  private userKey: string | null = null;
+  private companyDefault: Lang | null = null;
 
   constructor() { document.documentElement.lang = this.lang(); }
 
   get locale(): string { return this.lang() === 'fr' ? 'fr-FR' : 'en-GB'; }
 
+  private key() { return 'rms_lang_' + (this.userKey ?? 'visitor'); }
   private initial(): Lang {
-    try {
-      const s = localStorage.getItem('rms_lang');
-      if (s === 'fr' || s === 'en') return s;
-    } catch {}
+    try { const s = localStorage.getItem('rms_lang_visitor'); if (s === 'fr' || s === 'en') return s; } catch {}
     return (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
   }
+  private apply(l: Lang) { this.lang.set(l); document.documentElement.lang = l; }
 
+  /** Called on login / logout. A language the person chose themselves wins; otherwise the enterprise default applies. */
+  setUser(email: string | null, companyDefault: Lang | null = null) {
+    this.userKey = email;
+    this.companyDefault = companyDefault;
+    if (!email) { this.pref.set('default'); this.apply(this.initial()); return; }
+    let saved: string | null = null;
+    try { saved = localStorage.getItem(this.key()); } catch {}
+    if (saved === 'fr' || saved === 'en') { this.pref.set(saved); this.apply(saved); }
+    else { this.pref.set('default'); if (companyDefault) this.apply(companyDefault); }
+  }
+
+  /** The person's own choice (EN | FR switch or Profile Settings). */
   set(l: Lang) {
-    this.lang.set(l);
-    document.documentElement.lang = l;
-    try { localStorage.setItem('rms_lang', l); } catch {}
+    this.apply(l); this.pref.set(l);
+    try { localStorage.setItem(this.key(), l); } catch {}
+  }
+  /** Forget the personal choice and follow the company default again. */
+  setDefaultPreference() {
+    try { localStorage.removeItem(this.key()); } catch {}
+    this.pref.set('default');
+    this.apply(this.companyDefault ?? this.initial());
   }
 
   t(key: string, params?: Record<string, any>): string {

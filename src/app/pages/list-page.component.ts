@@ -4,7 +4,7 @@ import { AuthService } from '../core/auth.service';
 import { ConfirmService } from '../core/confirm.service';
 import { ToastService } from '../core/toast.service';
 import { LIST_CONFIGS, ListConfig } from '../core/list-configs';
-import { ENTERPRISES, INVITATIONS, USERS, dataFor, saveEnterprises, saveInvitations, saveUsers } from '../core/mock-data';
+import { ENTERPRISES, INVITATIONS, PROJECTS, REPORTS, USERS, dataFor, saveEnterprises, saveInvitations, saveProjects, saveUsers } from '../core/mock-data';
 import { isoToday, toIso } from '../core/report-rules';
 import { PageHeaderComponent } from '../shared/page-header.component';
 import { DataTableComponent } from '../shared/data-table.component';
@@ -26,7 +26,7 @@ import { I18nService } from '../core/i18n.service';
       <app-data-table
         [columns]="cfg.columns" [filters]="cfg.filters || []" [actions]="cfg.actions || []"
         [rows]="rows()" [loading]="loading()" [searchPlaceholder]="cfg.searchPlaceholder"
-        [emptyMessage]="cfg.emptyMessage" [initialSearch]="q()" (action)="onAction($event)" />
+        [emptyMessage]="cfg.emptyMessage" [searchExtra]="cfg.searchExtra || []" [initialSearch]="q()" (action)="onAction($event)" />
     }`
 })
 export class ListPageComponent implements OnInit {
@@ -61,7 +61,7 @@ export class ListPageComponent implements OnInit {
       const src = ENTERPRISES.find(e => e.id === row.id);
       if (src) { Object.assign(src, changes); saveEnterprises(); }
     }
-    if (this.entity === 'invitations' || this.entity === 'user-invitations') { // keep invitation status in the sample storage
+    if (this.entity === 'invitations' || this.entity === 'user-invitations' || this.entity === 'branch-invitations') { // keep invitation status in the sample storage
       const inv = INVITATIONS.find(i => i.id === row.id);
       if (inv) { Object.assign(inv, changes); saveInvitations(); }
       const u = USERS.find(x => String(x.email).toLowerCase() === String(row.email).toLowerCase());
@@ -90,6 +90,19 @@ export class ListPageComponent implements OnInit {
       case 'resend':
         this.patch(e.row, { status: 'Pending', invitedAt: isoToday(), expiresAt: toIso(new Date(Date.now() + 7 * 86400000)) }); this.toast.info(this.i18n.t('Invitation resent to {email}.', { email: e.row.email }));
         break;
+      case 'delete': {
+        const related = REPORTS.filter(r => r.entries?.some((x: any) => x.projectId === e.row.id)).length;
+        const message = related
+          ? this.i18n.t('Are you sure you want to delete {name}? It has {n} related report(s), which will stay in the report history. This cannot be undone.', { name, n: related })
+          : this.i18n.t('Are you sure you want to delete {name}? This cannot be undone.', { name });
+        if (await this.confirm.ask({ title: 'Delete project', message, confirmLabel: 'Delete', danger: true })) {
+          const i = PROJECTS.findIndex(p => p.id === e.row.id);
+          if (i >= 0) { PROJECTS.splice(i, 1); saveProjects(); }
+          this.rows.update(rs => rs.filter(r => r !== e.row));
+          this.toast.success('Project deleted.');
+        }
+        break;
+      }
       case 'copy-link': {
         const link = location.origin + '/accept-invitation?token=' + e.row.token;
         try { await navigator.clipboard.writeText(link); this.toast.success('Invitation link copied.'); } catch { this.toast.info(link); }

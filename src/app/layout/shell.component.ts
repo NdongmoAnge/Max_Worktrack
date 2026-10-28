@@ -43,7 +43,7 @@ import { LOGO, LOGO_DARK } from '../core/brand';
         <header class="topbar">
           <button type="button" class="icon-btn menu-btn" (click)="open.set(true)" [attr.aria-label]="'Open navigation menu' | t" [attr.aria-expanded]="open()"><app-icon name="menu" /></button>
           <a class="top-logo" [routerLink]="[auth.base(), 'dashboard']"><img [src]="logo" alt="Max WorkTrack" /></a>
-          <span class="top-context"><app-icon name="building" /> {{ auth.user()?.enterprise }}@if (auth.user()?.branch) { · {{ auth.user()?.branch | t }} }</span>
+          <span class="top-context">@if (auth.companyLogo()) { <img class="top-co-logo" [src]="auth.companyLogo()" alt="" /> } @else { <app-icon name="building" /> } {{ auth.user()?.enterprise }}@if (auth.user()?.branch) { · {{ auth.user()?.branch | t }} }</span>
           <a class="top-profile" [routerLink]="[auth.base(), 'profile']" [attr.title]="'Profile Settings' | t">
             <span class="top-profile-text"><strong>{{ auth.fullName() }}</strong><small>{{ 'Profile Settings' | t }}</small></span>
             <app-avatar />

@@ -7,9 +7,9 @@ export interface Slice { label: string; value: number; }
 export interface DashConfig {
   title: string; subtitle: string; banner?: { label: string; value: string };
   stats: DashStat[];
-  chart: { title: string; data: number[]; labels: string[] };
-  donut: { title: string; slices: Slice[] };
-  bars: { title: string; items: { label: string; value: number; text: string }[] };
+  chart?: { title: string; data: number[]; labels: string[] };
+  donut?: { title: string; slices: Slice[] };
+  bars?: { title: string; items: { label: string; value: number; text: string }[] };
   recent: { title: string; columns: Column[]; rows: any[]; link: string; linkLabel: string };
   list: { title: string; empty: string; items: { primary: string; secondary: string; badge?: string }[] };
   actions: { label: string; icon: string; link: string }[];
@@ -20,7 +20,9 @@ const pct = (n: number, t: number) => (t ? Math.round((n * 100) / t) : 0);
 const monthLabels = (locale: string) => [4, 5, 6, 7, 8, 9].map(m => new Date(2026, m, 1).toLocaleDateString(locale, { month: 'short' }));
 
 const projectSlices = (ps: any[]): Slice[] =>
-  ['In Progress', 'Completed', 'Delayed', 'Paused', 'Not Started'].map(s => ({ label: s, value: cnt(ps, p => p.status === s) })).filter(s => s.value > 0);
+  [['0%', (p: any) => p.progress === 0], ['1-49%', (p: any) => p.progress > 0 && p.progress < 50], ['50-99%', (p: any) => p.progress >= 50 && p.progress < 100], ['100%', (p: any) => p.progress >= 100]]
+    .map(([l, f]: any) => ({ label: l as string, value: cnt(ps, f) })).filter(x => x.value > 0);
+const inProgress = (ps: any[]) => cnt(ps, p => p.progress > 0 && p.progress < 100);
 const reportSlices = (rs: any[]): Slice[] =>
   ['Approved', 'Awaiting Review', 'Needs Correction', 'Rejected'].map(s => ({ label: s, value: cnt(rs, r => r.reviewStatus === s) })).filter(s => s.value > 0);
 const reportBars = (rs: any[]) => reportSlices(rs).map(s => ({ label: s.label, value: pct(s.value, rs.length), text: s.value + ' (' + pct(s.value, rs.length) + '%)' }));
@@ -50,8 +52,6 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
         { label: 'Accepted invitations', value: cnt(INVITATIONS, i => i.status === 'Accepted'), icon: 'check', sub: 'Accounts activated' }
       ],
       chart: { title: 'Enterprises registered (cumulative)', data: [0, 1, 1, 2, 4, 6], labels: months },
-      donut: { title: 'Enterprise status', slices: [{ label: 'Active', value: a }, { label: 'Suspended', value: ENTERPRISES.length - a }] },
-      bars: { title: 'Invitation status', items: ['Accepted', 'Pending', 'Expired', 'Revoked'].map(s => { const n = cnt(INVITATIONS, i => i.status === s); return { label: s, value: pct(n, INVITATIONS.length), text: n + ' (' + pct(n, INVITATIONS.length) + '%)' }; }) },
       recent: { title: 'Recently created enterprises', link: '{base}/enterprises', linkLabel: 'View all enterprises',
         columns: [{ key: 'name', label: 'Enterprise' }, { key: 'email', label: 'Email' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'createdAt', label: 'Created' }],
         rows: [...ENTERPRISES].reverse().slice(0, 4) },
@@ -64,22 +64,19 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
     return {
       title: 'Company Dashboard', subtitle: 'Here is the current state of your enterprise.', banner: { label: 'Enterprise', value: user.enterprise },
       stats: [
-        { label: 'Total employees', value: cnt(USERS, u => u.role === 'Employee'), icon: 'users', sub: 'Active staff' },
-        { label: 'Total interns', value: cnt(USERS, u => u.role === 'Intern'), icon: 'user', sub: 'Current interns' },
         { label: 'Reports awaiting review', value: cnt(REPORTS, r => r.reviewStatus === 'Awaiting Review'), icon: 'clock', sub: 'Need a decision', highlight: true },
         { label: 'Branch managers', value: cnt(USERS, u => u.role === 'Branch Manager'), icon: 'check-square', sub: 'Across branches' },
         { label: 'Total branches', value: BRANCHES.length, icon: 'branch' },
         { label: 'Total departments', value: DEPARTMENTS.length, icon: 'layers' },
         { label: 'Total projects', value: PROJECTS.length, icon: 'folder' },
-        { label: 'Active projects', value: cnt(PROJECTS, p => p.status === 'In Progress'), icon: 'activity' },
-        { label: 'Completed projects', value: cnt(PROJECTS, p => p.status === 'Completed'), icon: 'check' },
-        { label: 'Approved reports', value: cnt(REPORTS, r => r.reviewStatus === 'Approved'), icon: 'file' }
+        { label: 'Active projects', value: inProgress(PROJECTS), icon: 'activity' },
+        { label: 'Completed projects', value: cnt(PROJECTS, p => p.progress >= 100), icon: 'check' },
       ],
       chart: { title: 'Reports submitted per month', data: [8, 12, 15, 14, 19, 22], labels: months },
-      donut: { title: 'Project status', slices: projectSlices(PROJECTS) },
+      donut: { title: 'Project progress', slices: projectSlices(PROJECTS) },
       bars: { title: 'Report review status', items: reportBars(REPORTS) },
       recent: { title: 'Recent projects', link: '{base}/projects', linkLabel: 'View all projects',
-        columns: [{ key: 'id', label: 'ID' }, { key: 'name', label: 'Project' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'plannedFinish', label: 'Planned finish' }],
+        columns: [{ key: 'id', label: 'ID' }, { key: 'name', label: 'Project' }, { key: 'progress', label: 'Progress', type: 'progress' }, { key: 'plannedFinish', label: 'Planned finish' }],
         rows: PROJECTS.slice(0, 4) },
       list: { title: 'Pending review', empty: 'No reports are waiting for review.', items: pendingList(REPORTS, t) },
       actions: [{ label: 'Invite User', icon: 'plus', link: '{base}/users/new' }, { label: 'Create Project', icon: 'folder', link: '{base}/projects/new' }, { label: 'Reporting Schedule', icon: 'calendar', link: '{base}/schedule' }, { label: 'Export Reports', icon: 'download', link: '{base}/export' }]
@@ -97,15 +94,14 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
         { label: 'Total interns', value: cnt(people, u => u.role === 'Intern'), icon: 'user' },
         { label: 'Reports awaiting review', value: cnt(REPORTS, r => r.reviewStatus === 'Awaiting Review'), icon: 'clock', sub: 'Need your decision', highlight: true },
         { label: 'Total projects', value: ps.length, icon: 'folder' },
-        { label: 'Active projects', value: cnt(ps, p => p.status === 'In Progress'), icon: 'activity' },
-        { label: 'Completed projects', value: cnt(ps, p => p.status === 'Completed'), icon: 'check' },
-        { label: 'Delayed projects', value: cnt(ps, p => p.status === 'Delayed'), icon: 'alert' },
+        { label: 'Active projects', value: inProgress(ps), icon: 'activity' },
+        { label: 'Completed projects', value: cnt(ps, p => p.progress >= 100), icon: 'check' },
+        { label: 'Delayed projects', value: cnt(ps, p => p.delayDays > 0), icon: 'alert' },
         { label: 'Approved reports', value: cnt(REPORTS, r => r.reviewStatus === 'Approved'), icon: 'file' },
         { label: 'Needing correction', value: cnt(REPORTS, r => r.reviewStatus === 'Needs Correction'), icon: 'refresh' },
         { label: 'Missing weekly reports', value: miss.length, icon: 'x', sub: 'Not yet submitted' }
       ],
-      chart: { title: 'Reports submitted per month', data: [4, 6, 8, 7, 10, 12], labels: months },
-      donut: { title: 'Project status', slices: projectSlices(ps) },
+      donut: { title: 'Project progress', slices: projectSlices(ps) },
       bars: { title: 'Weekly report submissions', items: [
         { label: 'Submitted', value: pct(people.length - miss.length, people.length), text: (people.length - miss.length) + ' / ' + people.length },
         { label: 'Missing', value: pct(miss.length, people.length), text: miss.length + ' / ' + people.length }] },
@@ -113,7 +109,7 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
         columns: [{ key: 'id', label: 'Report' }, { key: 'employee', label: 'Employee' }, { key: 'projects', label: 'Projects', type: 'tags' }, { key: 'submittedAt', label: 'Submitted' }],
         rows: REPORTS.filter(r => r.reviewStatus === 'Awaiting Review') },
       list: { title: 'Employees who have not submitted', empty: 'Everyone has submitted this week.', items: miss.map(u => ({ primary: u.name, secondary: t(u.role) + ' · ' + t(u.department), badge: 'Missing' })) },
-      actions: [{ label: 'Reporting Schedule', icon: 'calendar', link: '{base}/schedule' }, { label: 'Report Reviews', icon: 'check-square', link: '{base}/reviews' }, { label: 'Project Progress', icon: 'chart', link: '{base}/progress' }]
+      actions: [{ label: 'Invite Employee or Intern', icon: 'plus', link: '{base}/employees/new' }, { label: 'Reporting Schedule', icon: 'calendar', link: '{base}/schedule' }, { label: 'Report Reviews', icon: 'check-square', link: '{base}/reviews' }, { label: 'Project Progress', icon: 'chart', link: '{base}/progress' }]
     };
   }
 
@@ -126,7 +122,7 @@ export function buildDashboard(role: Role, user: User, t: (s: string, p?: any) =
     title: isIntern ? 'Intern Dashboard' : 'Employee Dashboard', subtitle: 'Here is a summary of your work.', banner: { label: 'Branch', value: user.branch ?? '' },
     stats: [
       { label: 'Assigned projects', value: myProjects.length, icon: 'folder' },
-      { label: isIntern ? 'Activities completed' : 'Projects in progress', value: isIntern ? cnt(mine, r => r.activityStatus === 'Completed') : cnt(myProjects, p => p.status === 'In Progress'), icon: 'activity' },
+      { label: isIntern ? 'Activities almost done' : 'Projects in progress', value: isIntern ? cnt(mine, r => r.activityStatus === 'Almost Done') : inProgress(myProjects), icon: 'activity' },
       { label: 'Next reporting date', value: reportDate ? new Date(reportDate + 'T00:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) : nextMonday(locale), icon: 'clock', sub: 'Set by your branch manager', highlight: true },
       { label: isIntern ? 'Weekly reports submitted' : 'Reports submitted', value: mine.length, icon: 'send' },
       { label: isIntern ? 'Awaiting approval' : 'Reports approved', value: isIntern ? cnt(mine, r => r.reviewStatus === 'Awaiting Review') : cnt(mine, r => r.reviewStatus === 'Approved'), icon: 'check' },

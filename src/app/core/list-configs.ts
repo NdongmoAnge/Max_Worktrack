@@ -6,7 +6,7 @@ export interface FilterDef { key: string; label: string; options: string[]; }
 export interface RowAction { key: string; label: string; icon: string; link?: string; danger?: boolean; when?: (row: any) => boolean; }
 export interface ListConfig {
   title: string; crumbs: string[]; columns: Column[]; filters?: FilterDef[]; actions?: RowAction[];
-  createLink?: string; createLabel?: string; searchPlaceholder: string; emptyMessage: string;
+  createLink?: string; createLabel?: string; searchPlaceholder: string; emptyMessage: string; searchExtra?: string[];
 }
 
 const view = (link: string, label = 'View'): RowAction => ({ key: 'view', label, icon: 'eye', link });
@@ -23,9 +23,9 @@ const reportColumns: Column[] = [
 ];
 const reportFilters: FilterDef[] = [
   { key: 'reviewStatus', label: 'Review status', options: ['Awaiting Review', 'Approved', 'Rejected', 'Needs Correction'] },
-  { key: 'activityStatus', label: 'Activity status', options: ['Not Started', 'In Progress', 'Completed', 'On Hold', 'Cancelled'] }
+  { key: 'activityStatus', label: 'Activity status', options: ['In Progress', 'Almost Done', 'Paused', 'Blocked'] }
 ];
-const projectFilter = status(['Not Started', 'In Progress', 'Completed', 'Delayed', 'Paused']);
+const projectFilter: FilterDef = { key: 'progressBand', label: 'Progress', options: ['0%', '1-49%', '50-99%', '100%'] };
 
 export const LIST_CONFIGS: Record<string, ListConfig> = {
   enterprises: {
@@ -40,7 +40,7 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
   invitations: {
     title: 'Company Admin Invitations', crumbs: ['Invitations'], searchPlaceholder: 'Search invitations...', emptyMessage: 'No invitations found.',
     createLink: '{base}/invitations/new', createLabel: 'Send Invitation',
-    columns: [{ key: 'enterprise', label: 'Enterprise' }, { key: 'invitee', label: 'Invitee' }, { key: 'email', label: 'Invitee email' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'invitedAt', label: 'Invitation date' }, { key: 'expiresAt', label: 'Expires' }],
+    columns: [{ key: 'enterprise', label: 'Enterprise' }, { key: 'invitee', label: 'Invitee' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'invitedAt', label: 'Invitation date' }, { key: 'expiresAt', label: 'Expires' }],
     filters: [status(['Pending', 'Accepted', 'Expired', 'Revoked'])],
     actions: [
       { key: 'copy-link', label: 'Copy link', icon: 'upload', when: r => r.status === 'Pending' },
@@ -50,7 +50,7 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
   'user-invitations': {
     title: 'User Invitations', crumbs: ['Invitations'], searchPlaceholder: 'Search invitations...', emptyMessage: 'No invitations found.',
     createLink: '{base}/users/new', createLabel: 'Invite User',
-    columns: [{ key: 'invitee', label: 'Invitee' }, { key: 'email', label: 'Invitee email' }, { key: 'role', label: 'Role' }, { key: 'branch', label: 'Branch' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'invitedAt', label: 'Invitation date' }, { key: 'expiresAt', label: 'Expires' }],
+    columns: [{ key: 'invitee', label: 'Invitee' }, { key: 'role', label: 'Role' }, { key: 'branch', label: 'Branch' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'invitedAt', label: 'Invitation date' }, { key: 'expiresAt', label: 'Expires' }],
     filters: [{ key: 'role', label: 'Role', options: ['Branch Manager', 'Employee', 'Intern'] }, status(['Pending', 'Accepted', 'Expired', 'Revoked'])],
     actions: [
       { key: 'copy-link', label: 'Copy link', icon: 'upload', when: r => r.status === 'Pending' },
@@ -68,10 +68,10 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
   },
   users: {
     title: 'User Management', crumbs: ['Users'], searchPlaceholder: 'Search by name or email...', emptyMessage: 'No users found. Invite your first user to get started.',
-    createLink: '{base}/users/new', createLabel: 'Invite User',
-    columns: [{ key: 'name', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role' }, { key: 'branch', label: 'Branch' }, { key: 'department', label: 'Department' }, { key: 'status', label: 'Account', type: 'badge' }, { key: 'invitation', label: 'Invitation', type: 'badge' }],
-    filters: [{ key: 'role', label: 'Role', options: ['Branch Manager', 'Employee', 'Intern'] }, { key: 'branch', label: 'Branch', options: branchNames }, { key: 'department', label: 'Department', options: deptNames }, status(['Active', 'Inactive'])],
-    actions: [view('{base}/users/{id}'), edit('{base}/users/{id}/edit'),
+    createLink: '{base}/users/new', createLabel: 'Invite User', searchExtra: ['email', 'department'],
+    columns: [{ key: 'name', label: 'Name' }, { key: 'role', label: 'Role' }, { key: 'branch', label: 'Branch' }, { key: 'status', label: 'Account', type: 'badge' }],
+    filters: [{ key: 'role', label: 'Role', options: ['Branch Manager', 'Employee', 'Intern'] }, { key: 'branch', label: 'Branch', options: branchNames }, status(['Active', 'Inactive'])],
+    actions: [view('{base}/users/{id}'), { key: 'edit', label: 'Edit', icon: 'edit', link: '{base}/users/{id}/edit', when: r => !!r.canEdit },
       { key: 'deactivate', label: 'Deactivate', icon: 'pause', danger: true, when: r => r.status === 'Active' },
       { key: 'activate', label: 'Activate', icon: 'play', when: r => r.status === 'Inactive' }]
   },
@@ -91,27 +91,28 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
   projects: {
     title: 'Project Management', crumbs: ['Projects'], searchPlaceholder: 'Search by project name or ID...', emptyMessage: 'No projects found. Create your first project to get started.',
     createLink: '{base}/projects/new', createLabel: 'Create Project',
-    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'plannedFinish', label: 'Planned finish' }, { key: 'actualFinish', label: 'Actual finish' }],
+    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'progress', label: 'Progress', type: 'progress' }, { key: 'plannedFinish', label: 'Planned finish' }, { key: 'actualFinish', label: 'Actual finish' }],
     filters: [projectFilter],
-    actions: [view('{base}/projects/{id}'), edit('{base}/projects/{id}/edit')]
+    actions: [view('{base}/projects/{id}'), edit('{base}/projects/{id}/edit'), { key: 'delete', label: 'Delete', icon: 'trash', danger: true }]
   },
   'company-reports': {
     title: 'Activity Reports', crumbs: ['Activity Reports'], searchPlaceholder: 'Search reports...', emptyMessage: 'No reports found.',
     columns: reportColumns, filters: reportFilters, actions: [view('{base}/reports/{id}', 'Open')]
   },
   'branch-users': {
-    title: 'Employees and Interns', crumbs: ['Employees & Interns'], searchPlaceholder: 'Search by name or email...', emptyMessage: 'No employees or interns found in this branch.',
+    title: 'Employees and Interns', crumbs: ['Employees & Interns'], createLink: '{base}/employees/new', createLabel: 'Invite Employee or Intern', searchPlaceholder: 'Search by name or email...', emptyMessage: 'No employees or interns found in this branch.',
     columns: [{ key: 'name', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role' }, { key: 'department', label: 'Department' }, { key: 'weeklyReport', label: 'This week\'s report', type: 'badge' }],
-    filters: [{ key: 'role', label: 'Role', options: ['Employee', 'Intern'] }, { key: 'weeklyReport', label: 'Weekly report', options: ['Submitted', 'Missing'] }]
+    filters: [{ key: 'role', label: 'Role', options: ['Employee', 'Intern'] }, { key: 'weeklyReport', label: 'Weekly report', options: ['Submitted', 'Missing'] }],
+    actions: [{ key: 'edit', label: 'Edit', icon: 'edit', link: '{base}/employees/{id}/edit', when: r => !!r.canEdit }]
   },
   'branch-projects': {
     title: 'Branch Projects', crumbs: ['Branch Projects'], searchPlaceholder: 'Search by project name or ID...', emptyMessage: 'No projects found for this branch.',
-    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'plannedFinish', label: 'Planned finish' }, { key: 'actualFinish', label: 'Actual finish' }, { key: 'delay', label: 'Delay information' }],
+    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'progress', label: 'Progress', type: 'progress' }, { key: 'plannedFinish', label: 'Planned finish' }, { key: 'actualFinish', label: 'Actual finish' }, { key: 'delay', label: 'Delay information' }],
     filters: [projectFilter], actions: [view('{base}/projects/{id}')]
   },
   'project-progress': {
     title: 'Project Progress', crumbs: ['Project Progress'], searchPlaceholder: 'Search projects...', emptyMessage: 'No projects found for this branch.',
-    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'progress', label: 'Progress', type: 'progress' }, { key: 'delay', label: 'Delay information' }],
+    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'progress', label: 'Progress', type: 'progress' }, { key: 'delay', label: 'Delay information' }],
     filters: [projectFilter], actions: [view('{base}/projects/{id}')]
   },
   'branch-reports': {
@@ -131,7 +132,7 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
   },
   'my-projects': {
     title: 'My Projects', crumbs: ['My Projects'], searchPlaceholder: 'Search by project name or ID...', emptyMessage: 'No projects have been assigned to you yet.',
-    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'status', label: 'Status', type: 'badge' }, { key: 'plannedFinish', label: 'Planned finish' }, { key: 'progress', label: 'Progress', type: 'progress' }],
+    columns: [{ key: 'id', label: 'Project ID' }, { key: 'name', label: 'Project name' }, { key: 'plannedFinish', label: 'Planned finish' }, { key: 'progress', label: 'Progress', type: 'progress' }],
     filters: [projectFilter], actions: [view('{base}/projects/{id}')]
   },
   'my-reports': {
@@ -142,4 +143,11 @@ export const LIST_CONFIGS: Record<string, ListConfig> = {
     actions: [view('{base}/reports/{id}', 'Details'),
       { key: 'edit-report', label: 'Edit', icon: 'edit', link: '{base}/reports/{id}/edit', when: r => canEditReport(r) }]
   }
+};
+
+/** Branch Manager: invitations sent for the manager's own branch. */
+LIST_CONFIGS['branch-invitations'] = {
+  ...LIST_CONFIGS['user-invitations'],
+  title: 'Branch Invitations', createLink: '{base}/employees/new', createLabel: 'Invite Employee or Intern',
+  filters: [{ key: 'role', label: 'Role', options: ['Employee', 'Intern'] }, status(['Pending', 'Accepted', 'Expired', 'Revoked'])]
 };

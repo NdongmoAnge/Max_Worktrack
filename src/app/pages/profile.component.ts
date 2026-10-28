@@ -26,13 +26,14 @@ import { TPipe } from '../shared/t.pipe';
         <small class="hint">{{ 'JPG or PNG, up to 5 MB.' | t }}</small>
         @if (photoErr()) { <small class="error" role="alert">{{ photoErr() | t }}</small> }
         <div class="form-grid">
-          <div class="field"><label for="p-fn">{{ 'First name' | t }} <span class="req">*</span></label><input id="p-fn" formControlName="firstName" />
+          <div class="field"><label for="p-fn">{{ 'First name' | t }} <span class="req">*</span></label><input id="p-fn" formControlName="firstName" readonly />
             @if (bad(info, 'firstName')) { <small class="error" role="alert">{{ 'Please enter your first name.' | t }}</small> }</div>
-          <div class="field"><label for="p-ln">{{ 'Last name' | t }} <span class="req">*</span></label><input id="p-ln" formControlName="lastName" />
+          <div class="field"><label for="p-ln">{{ 'Last name' | t }} <span class="req">*</span></label><input id="p-ln" formControlName="lastName" readonly />
             @if (bad(info, 'lastName')) { <small class="error" role="alert">{{ 'Please enter your last name.' | t }}</small> }</div>
           <div class="field"><label for="p-em">{{ 'Email' | t }}</label><input id="p-em" formControlName="email" readonly /><small class="hint">{{ 'Email changes are handled by your administrator.' | t }}</small></div>
           <div class="field"><label for="p-ph">{{ 'Phone number' | t }}</label><input id="p-ph" type="tel" formControlName="phone" /></div>
         </div>
+        <small class="hint">{{ 'Your name can only be changed by the person who created your account.' | t }}</small>
         <div class="form-actions"><button class="btn btn-primary" type="submit" [disabled]="busy()">{{ 'Save changes' | t }}</button></div>
       </form>
 

@@ -15,6 +15,8 @@ import { ProfileComponent } from './pages/profile.component';
 import { ExportComponent } from './pages/export.component';
 import { ScheduleComponent } from './pages/schedule.component';
 import { WelcomeComponent } from './pages/welcome.component';
+import { WeeklyReportComponent } from './pages/weekly-report.component';
+import { CompanyProfileComponent } from './pages/company-profile.component';
 
 const list = (path: string, entity: string): Route => ({ path, component: ListPageComponent, data: { entity } });
 const form = (path: string, entity: string, mode: 'create' | 'edit' = 'create'): Route => ({ path, component: FormPageComponent, data: { entity, mode } });
@@ -43,13 +45,14 @@ const companyAdmin: Route[] = [
   list('projects', 'projects'), form('projects/new', 'project'), projectDetails, form('projects/:id/edit', 'project', 'edit'),
   list('reports', 'company-reports'), reportDetails,
   { path: 'export', component: ExportComponent },
+  { path: 'company', component: CompanyProfileComponent },
   profile
 ];
 
 const branchManager: Route[] = [
   home, dash,
   detail('branch', 'branch-info'),
-  list('employees', 'branch-users'),
+  list('employees', 'branch-users'), form('employees/new', 'branch-user'), form('employees/:id/edit', 'branch-user', 'edit'), list('invitations', 'branch-invitations'),
   { path: 'schedule', component: ScheduleComponent },
   list('projects', 'branch-projects'), projectDetails,
   list('progress', 'project-progress'),
@@ -62,8 +65,8 @@ const branchManager: Route[] = [
 const worker: Route[] = [
   home, dash,
   list('projects', 'my-projects'), projectDetails,
-  form('submit-report', 'report'),
-  list('reports', 'my-reports'), form('reports/:id/edit', 'report', 'edit'), reportDetails,
+  { path: 'submit-report', component: WeeklyReportComponent },
+  list('reports', 'my-reports'), { path: 'reports/:id/edit', component: WeeklyReportComponent }, reportDetails,
   { path: 'notifications', component: NotificationsComponent },
   profile
 ];

@@ -6,7 +6,7 @@ export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'mult
 export interface Field {
   key: string; label: string; type: FieldType; required?: boolean;
   options?: string[] | ((u: User) => string[]);
-  placeholder?: string; hint?: string; readonly?: boolean; createOnly?: boolean; requiredMsg?: string; defaultValue?: string;
+  placeholder?: string; hint?: string; readonly?: boolean; createOnly?: boolean; requiredMsg?: string; defaultValue?: string; lockOnEdit?: boolean;
 }
 
 export interface FormConfig {
@@ -19,7 +19,10 @@ export interface FormConfig {
 const uniq = (a: string[]) => Array.from(new Set(a));
 const branchNames = BRANCHES.map(b => b.name);
 const deptNames = uniq(DEPARTMENTS.map(d => d.name));
-const managers = USERS.filter(u => u.role === 'Branch Manager').map(u => u.name);
+/** Live lists (so people invited after the page loaded still appear). */
+const liveManagers = () => USERS.filter(u => u.role === 'Branch Manager').map(u => u.name);
+const liveAssignable = () => USERS.filter(u => u.role !== 'Branch Manager').map(u => u.name);
+const liveEveryone = () => USERS.map(u => u.name);
 
 export const FORM_CONFIGS: Record<string, FormConfig> = {
   enterprise: {
@@ -33,7 +36,6 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
       { key: 'email', label: 'Enterprise Email', type: 'email', required: true, requiredMsg: 'Please enter the enterprise email.' },
       { key: 'phone', label: 'Phone Number', type: 'tel', placeholder: '+237 ...' },
       { key: 'defaultLanguage', label: 'Default language', type: 'select', required: true, options: ['English', 'French'], defaultValue: 'English', hint: 'Used for all users of this enterprise until they choose their own language.', requiredMsg: 'Please select the default language.' },
-      { key: 'logo', label: 'Enterprise Logo', type: 'file', hint: 'Optional. PNG or JPG.' },
       { key: 'address', label: 'Address', type: 'textarea' },
       { key: 'adminFirstName', label: 'Company Admin First Name', type: 'text', required: true, createOnly: true, requiredMsg: 'Please enter the administrator\'s first name.' },
       { key: 'adminLastName', label: 'Company Admin Last Name', type: 'text', required: true, createOnly: true, requiredMsg: 'Please enter the administrator\'s last name.' },
@@ -56,10 +58,23 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
     fields: [
       { key: 'firstName', label: 'First Name', type: 'text', required: true, requiredMsg: 'Please enter the first name.' },
       { key: 'lastName', label: 'Last Name', type: 'text', required: true, requiredMsg: 'Please enter the last name.' },
-      { key: 'email', label: 'Email', type: 'email', required: true, requiredMsg: 'Please enter the email address.', hint: 'The invitation is sent to this email address.' },
+      { key: 'email', label: 'Email', type: 'email', required: true, lockOnEdit: true, requiredMsg: 'Please enter the email address.', hint: 'The invitation is sent to this email address.' },
       { key: 'role', label: 'Role', type: 'select', required: true, options: ['Branch Manager', 'Employee', 'Intern'], requiredMsg: 'Please select a role.' },
       { key: 'branch', label: 'Branch', type: 'select', required: true, options: branchNames, requiredMsg: 'Please select a branch.' },
       { key: 'department', label: 'Department', type: 'select', required: true, options: deptNames, requiredMsg: 'Please select a department.' }
+    ]
+  },
+  'branch-user': {
+    title: 'Invite Employee or Intern', crumbs: ['Employees & Interns', 'Invite'], submitLabel: 'Send Invitation', listLink: '{base}/employees',
+    successMessage: 'Invitation sent by email. The user can now activate the account.',
+    fields: [
+      { key: 'firstName', label: 'First Name', type: 'text', required: true, requiredMsg: 'Please enter the first name.' },
+      { key: 'lastName', label: 'Last Name', type: 'text', required: true, requiredMsg: 'Please enter the last name.' },
+      { key: 'email', label: 'Email', type: 'email', required: true, lockOnEdit: true, requiredMsg: 'Please enter the email address.', hint: 'The invitation is sent to this email address.' },
+      { key: 'role', label: 'Role', type: 'select', required: true, options: ['Employee', 'Intern'], requiredMsg: 'Please select a role.' },
+      { key: 'branch', label: 'Branch', type: 'text', readonly: true, required: true, hint: 'People you invite join your own branch.' },
+      { key: 'department', label: 'Department', type: 'select', required: true, requiredMsg: 'Please select a department.',
+        options: (u: User) => uniq(DEPARTMENTS.filter(d => d.branch === u.branch).map(d => d.name)) }
     ]
   },
   branch: {
@@ -68,7 +83,7 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
     fields: [
       { key: 'name', label: 'Branch Name', type: 'text', required: true, requiredMsg: 'Please enter the branch name.' },
       { key: 'city', label: 'City', type: 'text', required: true, requiredMsg: 'Please enter the city.' },
-      { key: 'manager', label: 'Branch Manager', type: 'select', options: managers }
+      { key: 'manager', label: 'Branch Manager', type: 'select', options: () => liveManagers() }
     ]
   },
   department: {
@@ -77,7 +92,7 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
     fields: [
       { key: 'name', label: 'Department Name', type: 'text', required: true, requiredMsg: 'Please enter the department name.' },
       { key: 'branch', label: 'Branch', type: 'select', required: true, options: branchNames, requiredMsg: 'Please select a branch.' },
-      { key: 'head', label: 'Department Head', type: 'select', options: USERS.map(u => u.name) }
+      { key: 'head', label: 'Department Head', type: 'select', options: () => liveEveryone() }
     ]
   },
   project: {
@@ -86,12 +101,11 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
     dateRange: { start: 'plannedStart', end: 'plannedFinish', message: 'The planned finish date cannot be earlier than the planned start date.' },
     fields: [
       { key: 'name', label: 'Project Name', type: 'text', required: true, requiredMsg: 'Please enter the project name.' },
-      { key: 'status', label: 'Project Status', type: 'select', required: true, options: ['Not Started', 'In Progress', 'Paused', 'Completed'], hint: 'Delays are calculated by the system.', requiredMsg: 'Please select a project status.' },
-      { key: 'plannedStart', label: 'Planned Start Date', type: 'date', required: true, requiredMsg: 'Please select the planned start date.' },
+      { key: 'plannedStart', label: 'Planned Start Date', type: 'date', required: true, defaultValue: 'today', hint: 'The progress percentage is calculated by the back end.', requiredMsg: 'Please select the planned start date.' },
       { key: 'plannedFinish', label: 'Planned Finish Date', type: 'date', required: true, requiredMsg: 'Please select the planned finish date.' },
-      { key: 'manager', label: 'Project Manager (Branch Manager)', type: 'select', required: true, options: managers, requiredMsg: 'Please select a project manager.' },
+      { key: 'manager', label: 'Project Manager (Branch Manager)', type: 'select', required: true, options: () => liveManagers(), requiredMsg: 'Please select a project manager.' },
       { key: 'description', label: 'Project Description', type: 'textarea', required: true, requiredMsg: 'Please enter a project description.' },
-      { key: 'team', label: 'Assigned Users', type: 'multiselect', required: true, options: USERS.filter(u => u.role !== 'Branch Manager').map(u => u.name), requiredMsg: 'Please assign at least one user.' }
+      { key: 'team', label: 'Assigned Users', type: 'multiselect', required: true, options: () => liveAssignable(), requiredMsg: 'Please assign at least one user.' }
     ]
   },
   report: {

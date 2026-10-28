@@ -1,7 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../core/toast.service';
-import { BRANCHES, REPORTS } from '../core/mock-data';
+import { BRANCHES, PROJECTS, REPORTS } from '../core/mock-data';
+import { isoToday } from '../core/report-rules';
 import { PageHeaderComponent } from '../shared/page-header.component';
 import { StatCardComponent } from '../shared/stat-card.component';
 import { IconComponent } from '../shared/icon.component';
@@ -28,6 +29,8 @@ import { TPipe } from '../shared/t.pipe';
         @if (rangeBad()) { <small class="error full" role="alert">{{ 'The end date cannot be earlier than the start date.' | t }}</small> }
         <div class="field"><label for="x-br">{{ 'Branch' | t }}</label>
           <select id="x-br" [(ngModel)]="branch"><option value="">{{ 'All branches' | t }}</option>@for (b of branches; track b.id) { <option [value]="b.name">{{ b.name | t }}</option> }</select></div>
+        <div class="field"><label for="x-pj">{{ 'Project' | t }}</label>
+          <select id="x-pj" [(ngModel)]="project"><option value="">{{ 'All projects' | t }}</option>@for (p of projects; track p.id) { <option [value]="p.name">{{ p.name | t }}</option> }</select></div>
         <div class="field"><label for="x-st">{{ 'Review status' | t }}</label>
           <select id="x-st" [(ngModel)]="status"><option value="">{{ 'All statuses' | t }}</option>@for (s of statuses; track s) { <option [value]="s">{{ s | t }}</option> }</select></div>
       </div>
@@ -42,7 +45,8 @@ export class ExportComponent {
   private toast = inject(ToastService);
   reports = REPORTS; branches = BRANCHES;
   statuses = ['Awaiting Review', 'Approved', 'Rejected', 'Needs Correction'];
-  from = ''; to = ''; branch = ''; status = '';
+  from = isoToday(); to = isoToday(); branch = ''; project = ''; status = '';
+  projects = PROJECTS;
   busy = signal(false);
   count(s: string) { return REPORTS.filter(r => r.reviewStatus === s).length; }
   rangeBad() { return !!this.from && !!this.to && this.to < this.from; }

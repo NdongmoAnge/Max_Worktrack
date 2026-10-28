@@ -7,7 +7,7 @@ import { ToastService } from '../core/toast.service';
 import { ReportingService } from '../core/reporting.service';
 import { I18nService } from '../core/i18n.service';
 import { Field, FormConfig, FORM_CONFIGS } from '../core/form-configs';
-import { ACCOUNTS, ENTERPRISES, INVITATIONS, PROJECTS, REPORTS, USERS, effectiveStatus, lookup, newToken, saveEnterprises, saveInvitations, saveUsers } from '../core/mock-data';
+import { ACCOUNTS, BRANCHES, DEPARTMENTS, ENTERPRISES, INVITATIONS, PROJECTS, REPORTS, USERS, effectiveStatus, lookup, newToken, saveBranches, saveDepartments, saveEnterprises, saveInvitations, saveProjects, saveUsers } from '../core/mock-data';
 import { canEditReport, editDeadline, isoToday, summarizeEntries, toIso } from '../core/report-rules';
 import { PageHeaderComponent } from '../shared/page-header.component';
 import { IconComponent } from '../shared/icon.component';
@@ -115,13 +115,43 @@ import { TPipe } from '../shared/t.pipe';
                     <small class="muted">{{ fileNames[f.key] || ('No file selected' | t) }}</small>
                   </div>
                 }
-                @default { <input [id]="'f-' + f.key" [type]="f.type" [formControlName]="f.key" [placeholder]="(f.placeholder || '') | t" [readonly]="!!f.readonly" /> }
+                @default { <input [id]="'f-' + f.key" [type]="f.type" [formControlName]="f.key" [placeholder]="(f.placeholder || '') | t" [readonly]="!!f.readonly || (edit && !!f.lockOnEdit)" /> }
               }
               @if (f.hint) { <small class="hint">{{ f.hint | t }}</small> }
               @if (err(f)) { <small class="error" role="alert">{{ err(f) }}</small> }
             </div>
           }
         </div>
+        @if (entity === 'project') {
+          <div class="task-editor">
+            <div class="te-head">
+              <h3 class="card-title">{{ 'Tasks and subtasks' | t }}</h3>
+              <button type="button" class="btn btn-sm btn-outline" (click)="addTask()"><app-icon name="plus" /> {{ 'Add task' | t }}</button>
+            </div>
+            @for (t of tasks; track t.id; let i = $index) {
+              <div class="te-task">
+                <div class="te-row">
+                  <span class="activity-num">{{ i + 1 }}</span>
+                  <input class="te-input" [value]="t.title" (input)="setTitle(t, $any($event.target).value)" [placeholder]="'Task title' | t" [attr.aria-label]="'Task title' | t" />
+                  <button type="button" class="icon-act danger" [attr.data-tip]="'Remove task' | t" [attr.aria-label]="'Remove task' | t" (click)="removeTask(i)"><app-icon name="trash" /></button>
+                </div>
+                <div class="chips te-assign" role="group" [attr.aria-label]="'Assigned to' | t">
+                  @for (m of teamOptions(); track m) {
+                    <button type="button" class="chip" [class.on]="t.assignees.includes(m)" [attr.aria-pressed]="t.assignees.includes(m)" (click)="toggleAssignee(t, m)">{{ m }}</button>
+                  } @empty { <small class="muted">{{ 'Choose the assigned users above first.' | t }}</small> }
+                </div>
+                @for (s of t.subtasks; track s.id; let j = $index) {
+                  <div class="te-row sub">
+                    <span class="te-dot"></span>
+                    <input class="te-input" [value]="s.title" (input)="setTitle(s, $any($event.target).value)" [placeholder]="'Subtask title' | t" [attr.aria-label]="'Subtask title' | t" />
+                    <button type="button" class="icon-act danger" [attr.data-tip]="'Remove subtask' | t" [attr.aria-label]="'Remove subtask' | t" (click)="removeSub(t, j)"><app-icon name="x" /></button>
+                  </div>
+                }
+                <button type="button" class="link" (click)="addSub(t)">+ {{ 'Add subtask' | t }}</button>
+              </div>
+            } @empty { <p class="muted">{{ 'No tasks yet. Add the first task of this project.' | t }}</p> }
+          </div>
+        }
         <div class="form-actions">
           <button type="button" class="btn btn-outline" (click)="cancel()">{{ 'Cancel' | t }}</button>
           <button type="submit" class="btn btn-primary" [disabled]="submitting() || closed || locked">
@@ -166,7 +196,14 @@ export class FormPageComponent implements OnInit {
     this.cfg = FORM_CONFIGS[this.entity];
     const id = this.route.snapshot.paramMap.get('id');
     this.record = this.edit ? lookup(this.entity, id) : null;
+    // only the person who created an account (the inviter) can change its details
+    if ((this.entity === 'user' || this.entity === 'branch-user') && this.edit && this.record && this.record.createdBy !== this.auth.user()!.email) {
+      this.locked = true;
+      this.toast.error('Only the person who created this account can change it.');
+      this.router.navigateByUrl(this.resolve(this.cfg.listLink));
+    }
     this.fields = this.cfg.fields.filter(f => !(this.edit && f.createOnly));
+    if (this.entity === 'project') this.tasks = JSON.parse(JSON.stringify(this.record?.tasks ?? []));
 
     // Weekly report: only the owner may edit, and only during the week it was submitted.
     if (this.entity === 'report' && this.edit && !canEditReport(this.record, this.auth.fullName())) {
@@ -182,9 +219,10 @@ export class FormPageComponent implements OnInit {
         controls[f.key] = new FormArray(rows.map((e: any) => this.entryGroup(e)));
         continue;
       }
-      let v: any = this.record ? this.record[f.key] : f.defaultValue ?? '';
+      let v: any = this.record ? this.record[f.key] : f.defaultValue === 'today' ? isoToday() : f.defaultValue ?? '';
       if (f.type === 'multiselect') v = this.record?.[f.key] ?? [];
       if (f.key === 'employeeName') v = this.auth.fullName();
+      if (this.entity === 'branch-user' && f.key === 'branch') v = this.auth.user()!.branch ?? '';
       const validators = [];
       if (f.required) validators.push(Validators.required);
       if (f.type === 'email') validators.push(Validators.email);
@@ -246,7 +284,9 @@ export class FormPageComponent implements OnInit {
   }
 
   opts(f: Field): string[] {
-    return typeof f.options === 'function' ? f.options(this.auth.user()!) : f.options || [];
+    const list = typeof f.options === 'function' ? f.options(this.auth.user()!) : f.options || [];
+    const saved = this.record?.[f.key];
+    return f.type === 'select' && saved && !list.includes(saved) ? [...list, saved] : list;
   }
   isOn(k: string, o: string) { return (this.form.get(k)!.value as string[]).includes(o); }
   toggle(k: string, o: string) {
@@ -298,6 +338,51 @@ export class FormPageComponent implements OnInit {
     }
   }
 
+  /** Company Admin: create or edit a project with its tasks and subtasks (sample storage; the back end will replace this). */
+  private saveProject() {
+    const v = this.form.getRawValue();
+    const branch = USERS.find(u => u.name === v.manager)?.branch ?? 'Douala HQ';
+    const base = { name: v.name, description: v.description, plannedStart: v.plannedStart, plannedFinish: v.plannedFinish, manager: v.manager, team: v.team, branch };
+    const pid = this.edit && this.record ? this.record.id : 'PRJ-' + String(Math.max(0, ...PROJECTS.map(p => parseInt(String(p.id).slice(4), 10))) + 1).padStart(3, '0');
+    const stamp = Date.now().toString(36);
+    const tasks = this.tasks.filter(t => String(t.title).trim()).map((t, i) => {
+      const tid = String(t.id).startsWith('new-') ? pid + '-T' + stamp + i : t.id;
+      return {
+        id: tid, title: String(t.title).trim(), status: t.status ?? '',
+        assignees: (t.assignees ?? []).filter((a: string) => v.team.includes(a)),
+        subtasks: (t.subtasks ?? []).filter((s: any) => String(s.title).trim()).map((s: any, j: number) => ({ id: String(s.id).startsWith('new-') ? tid + '-S' + stamp + j : s.id, title: String(s.title).trim(), status: s.status ?? '' }))
+      };
+    });
+    if (this.edit && this.record) Object.assign(this.record, base, { tasks });
+    else PROJECTS.push({ id: pid, ...base, actualStart: '—', actualFinish: '—', delay: 'Not started yet', delayDays: 0, progress: 0, tasks });
+    saveProjects();
+  }
+
+  // ---- task editor (project form)
+  tasks: any[] = [];
+  private seq = 0;
+  teamOptions(): string[] { return this.form.get('team')?.value ?? []; }
+  addTask() { this.tasks.push({ id: 'new-' + (++this.seq), title: '', assignees: [], status: '', subtasks: [] }); this.form.markAsDirty(); }
+  removeTask(i: number) { this.tasks.splice(i, 1); this.form.markAsDirty(); }
+  addSub(t: any) { t.subtasks.push({ id: 'new-' + (++this.seq), title: '', status: '' }); this.form.markAsDirty(); }
+  removeSub(t: any, j: number) { t.subtasks.splice(j, 1); this.form.markAsDirty(); }
+  toggleAssignee(t: any, name: string) { const i = t.assignees.indexOf(name); i >= 0 ? t.assignees.splice(i, 1) : t.assignees.push(name); this.form.markAsDirty(); }
+  setTitle(o: any, v: string) { o.title = v; this.form.markAsDirty(); }
+
+  private saveBranch() {
+    const v = this.form.getRawValue();
+    if (this.edit && this.record) Object.assign(this.record, { name: v.name, city: v.city, manager: v.manager });
+    else BRANCHES.push({ id: Math.max(0, ...BRANCHES.map(b => b.id)) + 1, name: v.name, city: v.city, manager: v.manager, employees: 0, status: 'Active' });
+    saveBranches();
+  }
+
+  private saveDepartment() {
+    const v = this.form.getRawValue();
+    if (this.edit && this.record) Object.assign(this.record, { name: v.name, branch: v.branch, head: v.head });
+    else DEPARTMENTS.push({ id: Math.max(0, ...DEPARTMENTS.map(d => d.id)) + 1, name: v.name, branch: v.branch, head: v.head, members: 0 });
+    saveDepartments();
+  }
+
   /** Super Admin: invite a Company Admin for an existing enterprise. */
   private saveInvitation() {
     const v = this.form.getRawValue();
@@ -308,6 +393,7 @@ export class FormPageComponent implements OnInit {
   /** Company Admin: invite a Branch Manager, Employee or Intern (edit just updates the record). Returns false when the e-mail is already used. */
   private saveUser(): boolean {
     const v = this.form.getRawValue();
+    if (this.entity === 'branch-user') v.branch = this.auth.user()!.branch; // a branch manager can only invite into their own branch
     if (this.edit && this.record) {
       Object.assign(this.record, { firstName: v.firstName, lastName: v.lastName, name: v.firstName + ' ' + v.lastName, email: v.email, role: v.role, branch: v.branch, department: v.department });
       saveUsers();
@@ -318,7 +404,7 @@ export class FormPageComponent implements OnInit {
       || INVITATIONS.some(i => String(i.email).toLowerCase() === email && effectiveStatus(i) === 'Pending');
     if (taken) { this.toast.error('This email address already has an account or a pending invitation.'); return false; }
     const name = v.firstName + ' ' + v.lastName;
-    USERS.push({ id: Math.max(...USERS.map(u => u.id)) + 1, firstName: v.firstName, lastName: v.lastName, name, email, role: v.role, branch: v.branch, department: v.department, status: 'Active', invitation: 'Pending', weeklyReport: 'Missing' });
+    USERS.push({ id: Math.max(...USERS.map(u => u.id)) + 1, firstName: v.firstName, lastName: v.lastName, name, email, role: v.role, branch: v.branch, department: v.department, status: 'Active', invitation: 'Pending', weeklyReport: 'Missing', createdBy: this.auth.user()!.email });
     INVITATIONS.unshift({ id: Math.max(...INVITATIONS.map(i => i.id)) + 1, token: newToken(), enterprise: this.auth.user()!.enterprise, invitee: name, firstName: v.firstName, lastName: v.lastName, email, role: v.role, branch: v.branch, department: v.department, status: 'Pending', invitedAt: isoToday(), expiresAt: toIso(new Date(Date.now() + 7 * 86400000)), invitedBy: this.auth.fullName() });
     saveUsers(); saveInvitations();
     return true;
@@ -360,8 +446,11 @@ export class FormPageComponent implements OnInit {
     }
     if (this.entity === 'report') this.saveReport();
     if (this.entity === 'enterprise') this.saveEnterprise();
+    if (this.entity === 'project') this.saveProject();
+    if (this.entity === 'branch') this.saveBranch();
+    if (this.entity === 'department') this.saveDepartment();
     if (this.entity === 'invitation') this.saveInvitation();
-    if (this.entity === 'user' && !this.saveUser()) { this.submitting.set(false); return; }
+    if ((this.entity === 'user' || this.entity === 'branch-user') && !this.saveUser()) { this.submitting.set(false); return; }
     this.submitting.set(false);
     this.form.markAsPristine();
     this.toast.success(this.edit ? this.cfg.updateMessage || 'Changes saved successfully.' : this.cfg.successMessage);

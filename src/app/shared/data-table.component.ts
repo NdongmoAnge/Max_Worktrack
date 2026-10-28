@@ -53,7 +53,7 @@ import { Column, FilterDef, RowAction } from '../core/list-configs';
                     <td [attr.data-label]="c.label | t">
                       @switch (c.type) {
                         @case ('badge') { <app-status-badge [status]="row[c.key]" /> }
-                        @case ('tags') { <div class="tags">@for (p of row[c.key]; track p) { <span class="tag">{{ p | t }}</span> }</div> }
+                        @case ('tags') { <div class="tags">@for (p of row[c.key].slice(0, 2); track p) { <span class="tag">{{ p | t }}</span> }@if (row[c.key].length > 2) { <span class="tag more" [attr.title]="row[c.key].join(', ')">+{{ row[c.key].length - 2 }}</span> }</div> }
                         @case ('progress') {
                           <div class="progress-cell">
                             <div class="progress"><span [style.width.%]="row[c.key]"></span></div>
@@ -68,8 +68,8 @@ import { Column, FilterDef, RowAction } from '../core/list-configs';
                     <td class="row-actions" [attr.data-label]="'Actions' | t">
                       @for (a of actions; track a.key) {
                         @if (!a.when || a.when(row)) {
-                          <button type="button" class="btn btn-sm" [class.btn-outline]="!a.danger" [class.btn-danger-outline]="a.danger" (click)="action.emit({ key: a.key, row: row })">
-                            <app-icon [name]="a.icon" />{{ a.label | t }}
+                          <button type="button" class="icon-act" [class.danger]="a.danger" [attr.data-tip]="a.label | t" [attr.title]="a.label | t" [attr.aria-label]="a.label | t" (click)="action.emit({ key: a.key, row: row })">
+                            <app-icon [name]="a.icon" /><span class="act-label">{{ a.label | t }}</span>
                           </button>
                         }
                       }
@@ -101,6 +101,8 @@ export class DataTableComponent {
   @Input() searchPlaceholder = 'Search...';
   @Input() emptyMessage = 'No records found.';
   @Input() loading = false;
+  /** Extra fields (not shown as columns) that the search box also looks into. */
+  @Input() searchExtra: string[] = [];
   @Input() pageSize = 6;
   @Input() set initialSearch(v: string) { this.search.set(v || ''); this.page.set(1); }
   @Input() set rows(v: any[]) { this._rows.set(v || []); this.page.set(1); }
@@ -117,7 +119,7 @@ export class DataTableComponent {
   filtered = computed(() => {
     let r = this._rows();
     const q = this.search().toLowerCase().trim();
-    if (q) r = r.filter(row => this.columns.some(c => String(row[c.key] ?? '').toLowerCase().includes(q)));
+    if (q) { const keys = [...this.columns.map(c => c.key), ...this.searchExtra]; r = r.filter(row => keys.some(k => String(row[k] ?? '').toLowerCase().includes(q))); }
     const f = this.fv();
     for (const k of Object.keys(f)) { if (f[k]) r = r.filter(row => row[k] === f[k]); }
     const sk = this.sortKey();

@@ -53,20 +53,40 @@ type Decision = 'Approved' | 'Rejected' | 'Needs Correction';
             </dl>
           </div>
           <h3 class="section-title">{{ 'Project activities' | t }}</h3>
-          @for (e of r.entries; track $index) {
-            <div class="card pad activity-view">
-              <div class="activity-head">
-                <span class="activity-num">{{ $index + 1 }}</span>
+          @for (e of r.entries; track $index; let i = $index) {
+            <details class="card activity-view acc" [open]="i < 2">
+              <summary class="acc-sum">
+                <span class="activity-num">{{ i + 1 }}</span>
                 <strong>{{ e.project | t }}</strong>
+                <span class="acc-meta">{{ e.tasks?.length || 0 }} {{ 'tasks' | t }}</span>
                 <app-status-badge [status]="e.activityStatus" />
+              </summary>
+              <div class="acc-body">
+                <p class="entry-desc">{{ e.description }}</p>
+                <dl class="entry-dates">
+                  <div><dt>{{ 'Start date' | t }}</dt><dd>{{ e.startDate }}</dd></div>
+                  <div><dt>{{ 'End date' | t }}</dt><dd>{{ e.endDate }}</dd></div>
+                  <div><dt>{{ 'Actual end date' | t }}</dt><dd>{{ e.actualEndDate || '—' }}</dd></div>
+                </dl>
+                @if (e.tasks?.length) {
+                  <ul class="task-tree">
+                    @for (t of e.tasks; track t.id) {
+                      <li>
+                        <div class="tt-row"><span class="tt-title">{{ t.title }}</span>@if (t.status) { <app-status-badge [status]="t.status" /> }</div>
+                        @if (t.note) { <p class="tt-note">{{ t.note }}</p> }
+                        @if (t.subtasks?.length) {
+                          <ul class="subtasks">
+                            @for (s of t.subtasks; track s.id) {
+                              <li><span class="sub-dot"></span><span class="sub-title">{{ s.title }}</span>@if (s.status) { <app-status-badge [status]="s.status" /> }@if (s.note) { <small class="tt-note">{{ s.note }}</small> }</li>
+                            }
+                          </ul>
+                        }
+                      </li>
+                    }
+                  </ul>
+                }
               </div>
-              <p class="entry-desc">{{ e.description }}</p>
-              <dl class="entry-dates">
-                <div><dt>{{ 'Start date' | t }}</dt><dd>{{ e.startDate }}</dd></div>
-                <div><dt>{{ 'End date' | t }}</dt><dd>{{ e.endDate }}</dd></div>
-                <div><dt>{{ 'Actual end date' | t }}</dt><dd>{{ e.actualEndDate || '—' }}</dd></div>
-              </dl>
-            </div>
+            </details>
           }
         </div>
 

@@ -71,3 +71,21 @@ In the sample data, RPT-101 (employee) and RPT-102 (intern) were submitted on Mo
 - The **sidebar** (desktop) and the **top bar** (phones) are fixed; only the page content scrolls.
 - The **Super Admin** chooses each enterprise's **Default language** when creating/editing it. Its users get that language on login until they choose their own (EN | FR switch or Profile Settings > Language > "Company default" to go back).
 - The app always opens on the **welcome page** (after the spinner splash); "Sign in" leads to the login page. The welcome page ends with the site footer (`shared/site-footer.component.ts`).
+
+## Branch manager invitations and welcome page v2
+- The **Branch Manager** invites Employees and Interns into **their own branch** (Employees & Interns > Invite Employee or Intern, or the Invitations page).
+- The welcome page carousel **slides by itself** every 4 seconds (progress bar, arrows, dots, swipe, click to enlarge). The header turns solid on scroll, the hero follows the mouse, sections reveal on scroll, feature cards tilt and glow.
+
+## Projects: edit and delete (Company Admin)
+- **Edit** now saves (Projects > Edit, or the Edit button on a project). New projects are saved too.
+- **Delete** is in the projects list and on the project page, with a confirmation. If the project has reports, the dialog says they stay in the report history.
+- Branch and department create/edit are saved as well. Everything is kept in the browser until the back end exists.
+
+## Latest changes (v3)
+- **Projects:** the Company Admin can create, **edit** and **delete** projects, and manage each project's **tasks and subtasks** (with the people assigned). Project progress is a **percentage calculated by the back end**; it is shown instead of a status and does not depend on employee statuses.
+- **Weekly report:** projects are collapsible groups (search, "show updated only", expand/collapse all) so even 10+ projects stay tidy. Inside each project the employee sees their tasks and subtasks and sets each one to **In Progress, Almost Done, Paused or Blocked** (Blocked needs a reason). Start/end dates stay fixed; the actual end date and a description are required for each updated project.
+- **Reports statistics:** the dates default to today and there is a project filter.
+- **Tables:** action buttons are icons; hover (or focus) an icon to read what it does. Invitation lists no longer show the e-mail column. The Users list only shows the key columns; everything else is on the View page.
+- **Names:** a person's name can only be changed by the person who created the account (edit button only for the creator). Company Admin > Company Profile sets the company logo (not the Super Admin).
+- **Activation** only appears when someone opens the emailed invitation link. The website language follows the browser language (company default and personal choice still apply after login).
+- Dashboards: Super Admin no longer shows enterprise/invitation status; Company Admin no longer shows total employees, interns and approved reports; Branch Manager no longer shows reports per month.

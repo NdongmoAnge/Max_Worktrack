@@ -36,17 +36,19 @@ const COLORS = ['#0a0af0', '#0a0a0a', '#8c8cff', '#c9c9d6', '#4b4bff'];
         <div class="hero-date"><app-icon name="clock" /> {{ todayLabel() }}</div>
       </section>
 
-      <div class="dash-grid">
+      <div class="dash-grid" [class.single]="!(cfg.donut || cfg.bars)">
         <div class="dash-left">
           <div class="stat-grid">
             @for (s of cfg.stats; track s.label) {
               <app-stat-card [label]="s.label" [value]="s.value" [icon]="s.icon" [sub]="s.sub || ''" [highlight]="!!s.highlight" />
             }
           </div>
+          @if (cfg.chart) {
           <div class="card pad">
             <h3 class="card-title">{{ cfg.chart.title | t }}</h3>
             <app-area-chart [data]="cfg.chart.data" [labels]="cfg.chart.labels" />
           </div>
+          }
           <div class="card pad">
             <h3 class="card-title">{{ monthLabel() }}</h3>
             <div class="week" role="list">
@@ -60,7 +62,9 @@ const COLORS = ['#0a0af0', '#0a0a0a', '#8c8cff', '#c9c9d6', '#4b4bff'];
           </div>
         </div>
 
+        @if (cfg.donut || cfg.bars) {
         <div class="dash-right">
+          @if (cfg.donut) {
           <div class="card pad">
             <h3 class="card-title">{{ cfg.donut.title | t }}</h3>
             @if (total(cfg.donut.slices) > 0) {
@@ -76,6 +80,8 @@ const COLORS = ['#0a0af0', '#0a0a0a', '#8c8cff', '#c9c9d6', '#4b4bff'];
               </div>
             } @else { <app-empty-state message="No data yet." /> }
           </div>
+          }
+          @if (cfg.bars) {
           <div class="card pad">
             <h3 class="card-title">{{ cfg.bars.title | t }}</h3>
             @for (b of cfg.bars.items; track b.label) {
@@ -85,7 +91,9 @@ const COLORS = ['#0a0af0', '#0a0a0a', '#8c8cff', '#c9c9d6', '#4b4bff'];
               </div>
             } @empty { <app-empty-state message="No data yet." /> }
           </div>
+          }
         </div>
+        }
       </div>
 
       <div class="dash-bottom">
@@ -99,7 +107,7 @@ const COLORS = ['#0a0af0', '#0a0a0a', '#8c8cff', '#c9c9d6', '#4b4bff'];
                   <tr>
                     @for (c of cfg.recent.columns; track c.key) {
                       <td [attr.data-label]="c.label | t">
-                        @if (c.type === 'badge') { <app-status-badge [status]="r[c.key]" /> } @else if (c.type === 'tags') { <div class="tags">@for (p of r[c.key]; track p) { <span class="tag">{{ p | t }}</span> }</div> } @else { {{ (r[c.key] ?? '—') | t }} }
+                        @if (c.type === 'badge') { <app-status-badge [status]="r[c.key]" /> } @else if (c.type === 'progress') { <div class="progress-cell"><div class="progress"><span [style.width.%]="r[c.key]"></span></div><small>{{ r[c.key] }}%</small></div> } @else if (c.type === 'tags') { <div class="tags">@for (p of r[c.key].slice(0, 2); track p) { <span class="tag">{{ p | t }}</span> }@if (r[c.key].length > 2) { <span class="tag more" [attr.title]="r[c.key].join(', ')">+{{ r[c.key].length - 2 }}</span> }</div> } @else { {{ (r[c.key] ?? '—') | t }} }
                       </td>
                     }
                   </tr>

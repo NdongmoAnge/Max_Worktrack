@@ -17,7 +17,7 @@ import { RouterLink } from '@angular/router';
           <img class="auth-logo" [src]="logoWhite" alt="Max WorkTrack" />
           <nav class="auth-tabs" [attr.aria-label]="'Authentication' | t">
             <a routerLink="/login" class="tab" [class.active]="active === 'login'">{{ 'LOGIN' | t }}</a>
-            <a routerLink="/accept-invitation" class="tab" [class.active]="active === 'activate'">{{ 'ACTIVATE' | t }}</a>
+            @if (showActivate) { <a class="tab" [class.active]="active === 'activate'">{{ 'ACTIVATE' | t }}</a> }
           </nav>
         </aside>
         <section class="auth-right">
@@ -31,5 +31,7 @@ import { RouterLink } from '@angular/router';
 })
 export class AuthCardComponent {
   logoWhite = LOGO_WHITE;
+  /** The activation tab only exists on the page opened from the emailed invitation link. */
+  @Input() showActivate = false;
   @Input() active: 'login' | 'activate' | 'none' = 'login';
 }

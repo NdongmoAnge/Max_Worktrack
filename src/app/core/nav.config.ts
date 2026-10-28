@@ -30,12 +30,14 @@ export const NAV: Record<Role, NavItem[]> = {
     { label: 'Projects', icon: 'folder', path: 'projects' },
     { label: 'Activity Reports', icon: 'file', path: 'reports' },
     { label: 'Reports & Statistics', icon: 'chart', path: 'export' },
+    { label: 'Company Profile', icon: 'building', path: 'company' },
     { label: 'Profile Settings', icon: 'user', path: 'profile' }
   ],
   branch_manager: [
     { label: 'Dashboard', icon: 'dashboard', path: 'dashboard' },
     { label: 'Branch Information', icon: 'info', path: 'branch' },
     { label: 'Employees & Interns', icon: 'users', path: 'employees' },
+    { label: 'Invitations', icon: 'mail', path: 'invitations' },
     { label: 'Reporting Schedule', icon: 'calendar', path: 'schedule' },
     { label: 'Branch Projects', icon: 'folder', path: 'projects' },
     { label: 'Project Progress', icon: 'chart', path: 'progress' },

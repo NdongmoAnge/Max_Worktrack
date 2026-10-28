@@ -39,7 +39,7 @@ export function summarizeEntries(entries: ReportEntry[]) {
     projects: names,
     project: names.join(', '),
     projectId: entries[0]?.projectId ?? '',
-    activityStatus: statuses.length === 1 ? statuses[0] : 'In Progress',
+    activityStatus: worstStatus(statuses),
     startDate: starts[0] ?? '',
     endDate: ends[ends.length - 1] ?? ''
   };
@@ -66,4 +66,10 @@ export function nextReportDate(anchor: string | null, today: string): string {
   const d = new Date(a);
   d.setDate(a.getDate() + 7 * Math.ceil(diff / 7));
   return toIso(d);
+}
+
+export const TASK_STATUSES = ['In Progress', 'Almost Done', 'Paused', 'Blocked'];
+/** The most urgent status wins: Blocked > Paused > In Progress > Almost Done. */
+export function worstStatus(statuses: string[]): string {
+  return ['Blocked', 'Paused', 'In Progress', 'Almost Done'].find(s => statuses.includes(s)) ?? statuses[0] ?? '';
 }

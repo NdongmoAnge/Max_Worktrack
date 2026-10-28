@@ -1,7 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
-import { PROJECTS, REPORTS } from '../core/mock-data';
+import { PROJECTS, REPORTS, saveProjects } from '../core/mock-data';
+import { ConfirmService } from '../core/confirm.service';
+import { ToastService } from '../core/toast.service';
+import { I18nService } from '../core/i18n.service';
 import { PageHeaderComponent } from '../shared/page-header.component';
 import { StatusBadgeComponent } from '../shared/status-badge.component';
 import { EmptyStateComponent } from '../shared/empty-state.component';
@@ -17,9 +20,12 @@ import { TPipe } from '../shared/t.pipe';
       <app-page-header [title]="p.name" [crumbs]="['Projects', p.id]">
         <a class="btn btn-outline" [routerLink]="[auth.base(), 'projects']"><app-icon name="chevron-left" /> {{ 'Back to Projects' | t }}</a>
         @if (auth.role() === 'company_admin') { <a class="btn btn-primary" [routerLink]="[auth.base(), 'projects', p.id, 'edit']"><app-icon name="edit" /> {{ 'Edit' | t }}</a> }
+      @if (auth.role() === 'company_admin') {
+          <button type="button" class="btn btn-danger-outline" (click)="remove()"><app-icon name="trash" /> {{ 'Delete' | t }}</button>
+        }
       </app-page-header>
 
-      @if (p.status === 'Delayed') {
+      @if (p.delayDays > 0) {
         <div class="alert alert-warning" role="status"><app-icon name="alert" /> {{ 'This project is marked as delayed:' | t }} {{ p.delay | t }}.</div>
       }
 
@@ -28,7 +34,6 @@ import { TPipe } from '../shared/t.pipe';
           <h3 class="card-title">{{ 'Project information' | t }}</h3>
           <dl class="details one">
             <div><dt>{{ 'Project ID' | t }}</dt><dd>{{ p.id }}</dd></div>
-            <div><dt>{{ 'Status' | t }}</dt><dd><app-status-badge [status]="p.status" /></dd></div>
             <div><dt>{{ 'Description' | t }}</dt><dd>{{ p.description }}</dd></div>
             <div><dt>{{ 'Project manager' | t }}</dt><dd>{{ p.manager }}</dd></div>
             <div><dt>{{ 'Planned start' | t }}</dt><dd>{{ p.plannedStart }}</dd></div>
@@ -43,6 +48,7 @@ import { TPipe } from '../shared/t.pipe';
             <h3 class="card-title">{{ 'Progress' | t }}</h3>
             <div class="bar-top"><span>{{ 'Completed' | t }}</span><span>{{ p.progress }}%</span></div>
             <div class="progress big"><span [style.width.%]="p.progress"></span></div>
+            <small class="hint">{{ 'The progress percentage is calculated by the back end.' | t }}</small>
           </div>
           <div class="card pad">
             <h3 class="card-title">{{ 'Assigned team members' | t }}</h3>
@@ -51,6 +57,33 @@ import { TPipe } from '../shared/t.pipe';
             </ul>
           </div>
         </div>
+      </div>
+
+      <div class="card pad mt">
+        <h3 class="card-title">{{ 'Tasks and subtasks' | t }}</h3>
+        @if (p.tasks?.length) {
+          <ul class="task-tree big">
+            @for (t of p.tasks; track t.id) {
+              <li>
+                <details class="acc-task" [open]="p.tasks.length <= 4">
+                  <summary>
+                    <span class="tt-title">{{ t.title }}</span>
+                    <span class="tt-meta">{{ t.subtasks.length }} {{ 'subtasks' | t }}</span>
+                    @if (t.assignees?.length) { <span class="tags">@for (a of t.assignees; track a) { <span class="tag">{{ a }}</span> }</span> }
+                    @if (t.status) { <app-status-badge [status]="t.status" /> }
+                  </summary>
+                  @if (t.subtasks.length) {
+                    <ul class="subtasks">
+                      @for (s of t.subtasks; track s.id) {
+                        <li><span class="sub-dot"></span><span class="sub-title">{{ s.title }}</span>@if (s.status) { <app-status-badge [status]="s.status" /> }</li>
+                      }
+                    </ul>
+                  }
+                </details>
+              </li>
+            }
+          </ul>
+        } @else { <app-empty-state message="No tasks yet. Add the first task of this project." icon="check-square" /> }
       </div>
 
       <div class="card pad mt">
@@ -81,8 +114,25 @@ import { TPipe } from '../shared/t.pipe';
 export class ProjectDetailsComponent implements OnInit {
   auth = inject(AuthService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private confirm = inject(ConfirmService);
+  private toast = inject(ToastService);
+  private i18n = inject(I18nService);
   p: any = null;
   related: any[] = [];
+  async remove() {
+    const p = this.p;
+    const related = REPORTS.filter(r => r.entries?.some((e: any) => e.projectId === p.id)).length;
+    const message = related
+      ? this.i18n.t('Are you sure you want to delete {name}? It has {n} related report(s), which will stay in the report history. This cannot be undone.', { name: p.name, n: related })
+      : this.i18n.t('Are you sure you want to delete {name}? This cannot be undone.', { name: p.name });
+    if (!(await this.confirm.ask({ title: 'Delete project', message, confirmLabel: 'Delete', danger: true }))) return;
+    const i = PROJECTS.findIndex(x => x.id === p.id);
+    if (i >= 0) { PROJECTS.splice(i, 1); saveProjects(); }
+    this.toast.success('Project deleted.');
+    this.router.navigate([this.auth.base(), 'projects']);
+  }
+
   entryStatus(r: any) { return r.entries.find((e: any) => e.projectId === this.p.id)?.activityStatus ?? ''; }
 
   ngOnInit() {

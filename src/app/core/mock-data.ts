@@ -86,7 +86,7 @@ export const USERS: any[] = rawUsers.map((u, i) => ({
   id: i + 1, firstName: u[0], lastName: u[1], name: u[0] + ' ' + u[1],
   email: ascii(u[0] + '.' + u[1]) + '@maxwell.tech',
   role: u[2], branch: u[3], department: u[4], status: u[5], invitation: u[6],
-  weeklyReport: missing.includes(u[0] + ' ' + u[1]) ? 'Missing' : 'Submitted'
+  weeklyReport: missing.includes(u[0] + ' ' + u[1]) ? 'Missing' : 'Submitted', createdBy: 'company@demo.com'
 }));
 
 // ---- invitations: every person (Company Admin, Branch Manager, Employee, Intern) joins through an emailed invitation link
@@ -108,6 +108,7 @@ INVITATIONS.forEach(i => {
 try { const s = JSON.parse(localStorage.getItem('rms_invitations') || 'null'); if (Array.isArray(s) && s.length) INVITATIONS.splice(0, INVITATIONS.length, ...s); } catch {}
 try { const s = JSON.parse(localStorage.getItem('rms_users') || 'null'); if (Array.isArray(s) && s.length) USERS.splice(0, USERS.length, ...s); } catch {}
 export function saveInvitations() { try { localStorage.setItem('rms_invitations', JSON.stringify(INVITATIONS)); } catch {} }
+USERS.forEach(u => { u.createdBy = u.createdBy ?? 'company@demo.com'; });
 export function saveUsers() { try { localStorage.setItem('rms_users', JSON.stringify(USERS)); } catch {} }
 /** A pending invitation whose expiry date has passed counts as expired. */
 export function effectiveStatus(inv: any): string { return inv.status === 'Pending' && inv.expiresAt < isoToday() ? 'Expired' : inv.status; }
@@ -139,6 +140,51 @@ export const PROJECTS: any[] = [
   { id: 'PRJ-006', name: 'Payroll Automation', description: 'Automation of monthly payroll calculations.', status: 'Not Started', plannedStart: '2026-11-02', plannedFinish: '2027-03-12', actualStart: '—', actualFinish: '—', delay: 'Not started yet', progress: 0, manager: 'Samuel Nkeng', branch: 'Douala HQ', team: ['Eric Mbarga'] }
 ];
 
+// Projects, branches and departments changed by the Company Admin are kept in the browser (sample storage; the back end will own this).
+const loadInto = (key: string, target: any[]) => {
+  try { const s = JSON.parse(localStorage.getItem(key) || 'null'); if (Array.isArray(s) && s.length) target.splice(0, target.length, ...s); } catch {}
+};
+const store = (key: string, data: any[]) => { try { localStorage.setItem(key, JSON.stringify(data)); } catch {} };
+loadInto('rms_branches', BRANCHES);
+loadInto('rms_departments', DEPARTMENTS);
+export function saveProjects() { store('rms_projects', PROJECTS); }
+export function saveBranches() { store('rms_branches', BRANCHES); }
+export function saveDepartments() { store('rms_departments', DEPARTMENTS); }
+
+// ---- tasks and subtasks of every project (status = last status reported by the assignee)
+type TaskDef = [string, string[], string[], string?];
+const mkTasks = (pid: string, defs: TaskDef[]) => defs.map((d, i) => ({
+  id: pid + '-T' + (i + 1), title: d[0], assignees: d[1], status: d[3] ?? '',
+  subtasks: d[2].map((s, j) => ({ id: pid + '-T' + (i + 1) + '-S' + (j + 1), title: s, status: '' }))
+}));
+const TASKS: Record<string, any[]> = {
+  'PRJ-001': mkTasks('PRJ-001', [
+    ['Design system and style guide', ['Carine Fotso', 'Brice Tamo'], ['Define colour tokens', 'Create typography scale', 'Document components'], 'In Progress'],
+    ['Homepage layout', ['Carine Fotso', 'Eric Mbarga'], ['Build responsive grid', 'Hero section', 'Navigation menu'], 'Almost Done'],
+    ['Contact form integration', ['Eric Mbarga'], ['Validation rules', 'Email service']],
+    ['Content migration', ['Brice Tamo'], ['Export old pages', 'Import to the new CMS']]]),
+  'PRJ-002': mkTasks('PRJ-002', [
+    ['Stock tracking module', ['Eric Mbarga'], ['Product catalogue', 'Stock movements']],
+    ['Low-stock alerts', ['Joëlle Nana'], ['Threshold settings', 'Email alerts']]]),
+  'PRJ-003': mkTasks('PRJ-003', [
+    ['Login and onboarding', ['Carine Fotso'], ['Login screen', 'Password reset', 'Onboarding slides'], 'Paused'],
+    ['Order follow-up screen', ['Joëlle Nana', 'Carine Fotso'], ['Order list', 'Status timeline']]]),
+  'PRJ-004': mkTasks('PRJ-004', [
+    ['Cabling audit', ['Brice Tamo'], ['Map the switches', 'Label the patch panels'], 'Almost Done'],
+    ['VLAN configuration', ['Eric Mbarga'], ['Finance VLAN', 'Guest VLAN'], 'Blocked'],
+    ['Switch replacement', ['Brice Tamo', 'Eric Mbarga'], ['Order the equipment', 'Install the switches']]]),
+  'PRJ-005': mkTasks('PRJ-005', [
+    ['Dashboard cards', ['Carine Fotso'], ['Invoice card', 'Ticket card'], 'In Progress'],
+    ['Invoices page', ['Joëlle Nana', 'Carine Fotso'], ['Wireframes', 'List and filters']],
+    ['Ticket tracking', ['Joëlle Nana'], ['Create a ticket', 'Ticket timeline']]]),
+  'PRJ-006': mkTasks('PRJ-006', [['Payroll rules', ['Eric Mbarga'], ['Tax rules', 'Overtime rules']]])
+};
+// Project progress is a percentage calculated by the back end (it does not depend on employee statuses); delay info comes from the system too.
+PROJECTS.forEach(p => { p.tasks = TASKS[p.id] ?? []; p.delayDays = p.status === 'Delayed' ? 12 : 0; delete p.status; });
+loadInto('rms_projects', PROJECTS);
+/** Progress band used by the "Progress" filter. */
+export const progressBand = (p: number) => (p >= 100 ? '100%' : p >= 50 ? '50-99%' : p > 0 ? '1-49%' : '0%');
+
 export const REPORTS: any[] = [
   { id: 'RPT-101', employee: 'Carine Fotso', project: 'Website Redesign', projectId: 'PRJ-001', description: 'Implemented the responsive homepage layout and fixed navigation issues on tablet screens.', startDate: '2026-10-12', endDate: '2026-10-16', activityStatus: 'In Progress', reviewStatus: 'Awaiting Review', submittedAt: '2026-10-19', comments: [] },
   { id: 'RPT-102', employee: 'Brice Tamo', project: 'Network Upgrade', projectId: 'PRJ-004', description: 'Mapped the existing switches and documented the cable routes for the second floor.', startDate: '2026-10-12', endDate: '2026-10-16', activityStatus: 'In Progress', reviewStatus: 'Awaiting Review', submittedAt: '2026-10-19', comments: [] },
@@ -161,7 +207,14 @@ extra('RPT-101', { project: 'Customer Portal', projectId: 'PRJ-005', description
 extra('RPT-101', { project: 'Mobile Application', projectId: 'PRJ-003', description: 'Documented the open usability issues while the project is paused.', startDate: '2026-10-12', endDate: '2026-10-13', activityStatus: 'On Hold' });
 extra('RPT-102', { project: 'Website Redesign', projectId: 'PRJ-001', description: 'Updated the style guide with the new colour tokens.', startDate: '2026-10-15', endDate: '2026-10-16', activityStatus: 'Completed' });
 extra('RPT-105', { project: 'Customer Portal', projectId: 'PRJ-005', description: 'Built the dashboard card components.', startDate: '2026-10-07', endDate: '2026-10-09', activityStatus: 'In Progress' });
-REPORTS.forEach(r => r.entries.forEach((e: any) => { e.actualEndDate = e.actualEndDate ?? e.endDate; }));
+const STATUS_MAP: Record<string, string> = { Completed: 'Almost Done', 'On Hold': 'Paused', Cancelled: 'Blocked', 'Not Started': 'In Progress' };
+REPORTS.forEach(r => r.entries.forEach((e: any) => {
+  e.actualEndDate = e.actualEndDate ?? e.endDate;
+  e.activityStatus = STATUS_MAP[e.activityStatus] ?? e.activityStatus;
+  const mine = (PROJECTS.find(p => p.id === e.projectId)?.tasks ?? []).filter((t: any) => t.assignees.includes(r.employee)).slice(0, 2);
+  e.tasks = mine.map((t: any) => ({ id: t.id, title: t.title, status: e.activityStatus, note: '',
+    subtasks: t.subtasks.slice(0, 1).map((s: any) => ({ id: s.id, title: s.title, status: e.activityStatus, note: '' })) }));
+}));
 REPORTS.forEach(r => Object.assign(r, summarizeEntries(r.entries)));
 
 export const NOTIFICATIONS: any[] = [
@@ -180,6 +233,7 @@ export function dataFor(entity: string, user: User): any[] {
   switch (entity) {
     case 'enterprises': return copy(ENTERPRISES);
     case 'invitations': return copy(INVITATIONS.filter(i => i.role === 'Company Admin')).map(r => ({ ...r, status: effectiveStatus(r) }));
+    case 'branch-invitations': return copy(INVITATIONS.filter(i => i.role !== 'Company Admin' && i.enterprise === user.enterprise && i.branch === user.branch)).map(r => ({ ...r, status: effectiveStatus(r) }));
     case 'user-invitations': return copy(INVITATIONS.filter(i => i.role !== 'Company Admin' && i.enterprise === user.enterprise)).map(r => ({ ...r, status: effectiveStatus(r) }));
     case 'platform-users': {
       const known = new Set(PLATFORM_USERS.map(p => p.email.toLowerCase()));
@@ -188,18 +242,18 @@ export function dataFor(entity: string, user: User): any[] {
       return [...copy(PLATFORM_USERS), ...extra];
     }
     case 'activity-logs': return copy(LOGS);
-    case 'users': return copy(USERS);
+    case 'users': return copy(USERS).map(r => ({ ...r, canEdit: r.createdBy === user.email }));
     case 'branches': return copy(BRANCHES);
     case 'departments': return copy(DEPARTMENTS);
-    case 'projects': return copy(PROJECTS);
+    case 'projects': return copy(PROJECTS).map(r => ({ ...r, progressBand: progressBand(r.progress) }));
     case 'company-reports': return copy(REPORTS);
-    case 'branch-users': return copy(USERS.filter(u => u.branch === user.branch && (u.role === 'Employee' || u.role === 'Intern')));
+    case 'branch-users': return copy(USERS.filter(u => u.branch === user.branch && (u.role === 'Employee' || u.role === 'Intern'))).map(r => ({ ...r, canEdit: r.createdBy === user.email }));
     case 'branch-projects':
-    case 'project-progress': return copy(PROJECTS.filter(p => p.branch === user.branch));
+    case 'project-progress': return copy(PROJECTS.filter(p => p.branch === user.branch)).map(r => ({ ...r, progressBand: progressBand(r.progress) }));
     case 'branch-reports': return copy(REPORTS);
     case 'review-queue': return copy(REPORTS.filter(r => r.reviewStatus === 'Awaiting Review'));
     case 'review-history': return copy(REPORTS.filter(r => r.reviewStatus !== 'Awaiting Review'));
-    case 'my-projects': return copy(PROJECTS.filter(p => p.team.includes(name)));
+    case 'my-projects': return copy(PROJECTS.filter(p => p.team.includes(name))).map(r => ({ ...r, progressBand: progressBand(r.progress) }));
     case 'my-reports': return copy(REPORTS.filter(r => r.employee === name));
   }
   return [];
@@ -210,7 +264,8 @@ export function lookup(entity: string, id: string | null): any | null {
   const find = (a: any[]) => a.find(x => String(x.id) === id) ?? null;
   switch (entity) {
     case 'enterprise': return find(ENTERPRISES);
-    case 'user': return find(USERS);
+    case 'user':
+    case 'branch-user': return find(USERS);
     case 'branch': return find(BRANCHES);
     case 'department': return find(DEPARTMENTS);
     case 'project': return find(PROJECTS);
@@ -252,7 +307,7 @@ export function detailFor(entity: string, id: string | null, user: User): Detail
         { label: 'Branch', value: b.name }, { label: 'City', value: b.city }, { label: 'Branch manager', value: b.manager },
         { label: 'Employees', value: people.filter(u => u.role === 'Employee').length },
         { label: 'Interns', value: people.filter(u => u.role === 'Intern').length },
-        { label: 'Active projects', value: PROJECTS.filter(p => p.branch === b.name && p.status === 'In Progress').length },
+        { label: 'Active projects', value: PROJECTS.filter(p => p.branch === b.name && p.progress > 0 && p.progress < 100).length },
         { label: 'Status', value: b.status, badge: true }
       ] };
   }

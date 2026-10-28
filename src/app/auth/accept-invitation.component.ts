@@ -14,7 +14,7 @@ import { effectiveStatus, lookupInvitation } from '../core/mock-data';
   standalone: true,
   imports: [TPipe, ReactiveFormsModule, RouterLink, AuthCardComponent, IconComponent],
   template: `
-    <app-auth-card active="activate">
+    <app-auth-card active="activate" [showActivate]="true">
       <div class="auth-avatar"><app-icon name="mail" /></div>
       <h1 class="auth-title">{{ 'ACTIVATE' | t }}</h1>
 

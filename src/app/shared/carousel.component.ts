@@ -1,27 +1,32 @@
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { SCREENS } from '../core/screens';
 import { IconComponent } from './icon.component';
 import { TPipe } from './t.pipe';
 
-/** Screenshot carousel for the welcome page: auto-plays, pauses on hover/focus, arrows, dots, swipe and keyboard friendly. */
+/** Screenshot carousel: slides by itself, progress bar, 3D tilt, swipe, dots, click to enlarge. */
 @Component({
   selector: 'app-carousel',
   standalone: true,
   imports: [TPipe, IconComponent],
   template: `
     <section class="car" aria-roledescription="carousel" [attr.aria-label]="'Screenshots of Max WorkTrack' | t"
-             (mouseenter)="hold = true" (mouseleave)="hold = false" (focusin)="hold = true" (focusout)="hold = false"
-             (keydown.arrowLeft)="prev()" (keydown.arrowRight)="next()">
-      <div class="car-frame">
-        <div class="car-bar"><i></i><i></i><i></i></div>
+             (keydown.arrowLeft)="prev(true)" (keydown.arrowRight)="next(true)">
+      <div class="car-frame" #frame (mousemove)="tilt($event, frame)" (mouseleave)="untilt(frame)">
+        <div class="car-bar"><i></i><i></i><i></i><span class="car-url">max-worktrack</span></div>
         <div class="car-viewport" (touchstart)="touchX = $event.changedTouches[0].clientX" (touchend)="swipe($event.changedTouches[0].clientX)">
-          @for (s of slides; track s.title; let i = $index) {
-            <figure class="car-slide" [class.on]="i === index()" [attr.aria-hidden]="i !== index()" role="group" [attr.aria-label]="(i + 1) + ' / ' + slides.length">
-              <img [src]="s.src" [alt]="s.title | t" />
-            </figure>
-          }
-          <button type="button" class="car-nav prev" (click)="prev()" [attr.aria-label]="'Previous slide' | t"><app-icon name="chevron-left" /></button>
-          <button type="button" class="car-nav next" (click)="next()" [attr.aria-label]="'Next slide' | t"><app-icon name="chevron-right" /></button>
+          <div class="car-track" [style.transform]="'translateX(-' + index() * 100 + '%)'">
+            @for (s of slides; track s.title; let i = $index) {
+              <figure class="car-slide" [attr.aria-hidden]="i !== index()" role="group" [attr.aria-label]="(i + 1) + ' / ' + slides.length">
+                <img [src]="s.src" [alt]="s.title | t" draggable="false" (click)="zoom.set(true)" />
+              </figure>
+            }
+          </div>
+          <button type="button" class="car-nav prev" (click)="prev(true)" [attr.aria-label]="'Previous slide' | t"><app-icon name="chevron-left" /></button>
+          <button type="button" class="car-nav next" (click)="next(true)" [attr.aria-label]="'Next slide' | t"><app-icon name="chevron-right" /></button>
+          <span class="car-zoom"><app-icon name="eye" /> {{ 'Click to enlarge' | t }}</span>
+        </div>
+        <div class="car-progress" [class.paused]="zoom()" aria-hidden="true">
+          @for (k of progressKey(); track k) { <i [style.animation-duration.ms]="delay"></i> }
         </div>
       </div>
       <div class="car-caption" aria-live="polite">
@@ -30,9 +35,19 @@ import { TPipe } from './t.pipe';
       </div>
       <div class="car-dots" role="tablist">
         @for (s of slides; track s.title; let i = $index) {
-          <button type="button" role="tab" [class.on]="i === index()" [attr.aria-selected]="i === index()" [attr.aria-label]="s.title | t" (click)="go(i)"></button>
+          <button type="button" role="tab" [class.on]="i === index()" [attr.aria-selected]="i === index()" [attr.aria-label]="s.title | t" (click)="go(i, true)"></button>
         }
       </div>
+
+      @if (zoom()) {
+        <div class="car-lightbox" role="dialog" aria-modal="true" (click)="zoom.set(false)">
+          <img [src]="slides[index()].src" [alt]="slides[index()].title | t" (click)="$event.stopPropagation()" />
+          <button type="button" class="lb-btn close" (click)="zoom.set(false)" [attr.aria-label]="'Close' | t"><app-icon name="x" /></button>
+          <button type="button" class="lb-btn prev" (click)="prev(true); $event.stopPropagation()" [attr.aria-label]="'Previous slide' | t"><app-icon name="chevron-left" /></button>
+          <button type="button" class="lb-btn next" (click)="next(true); $event.stopPropagation()" [attr.aria-label]="'Next slide' | t"><app-icon name="chevron-right" /></button>
+          <p class="lb-cap" (click)="$event.stopPropagation()">{{ slides[index()].title | t }}</p>
+        </div>
+      }
     </section>`
 })
 export class CarouselComponent implements OnInit, OnDestroy {
@@ -44,18 +59,32 @@ export class CarouselComponent implements OnInit, OnDestroy {
     { src: SCREENS[4], title: 'Project progress', desc: 'Follow progress, planned dates and delays.' }
   ];
   index = signal(0);
-  hold = false;
+  zoom = signal(false);
+  progressKey = computed(() => [this.index()]);
+  delay = 4000;
   touchX = 0;
   private timer: any;
 
-  ngOnInit() {
-    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!reduce) this.timer = setInterval(() => { if (!this.hold) this.next(); }, 5000);
-  }
+  ngOnInit() { this.restart(); }
   ngOnDestroy() { clearInterval(this.timer); }
 
-  go(i: number) { this.index.set((i + this.slides.length) % this.slides.length); }
-  next() { this.go(this.index() + 1); }
-  prev() { this.go(this.index() - 1); }
-  swipe(x: number) { const d = x - this.touchX; if (Math.abs(d) > 40) d < 0 ? this.next() : this.prev(); }
+  /** Slides on its own; manual moves restart the timer. */
+  private restart() {
+    clearInterval(this.timer);
+    this.timer = setInterval(() => { if (!this.zoom() && !document.hidden) this.next(false); }, this.delay);
+  }
+  go(i: number, manual = false) { this.index.set((i + this.slides.length) % this.slides.length); if (manual) this.restart(); }
+  next(manual = false) { this.go(this.index() + 1, manual); }
+  prev(manual = false) { this.go(this.index() - 1, manual); }
+  swipe(x: number) { const d = x - this.touchX; if (Math.abs(d) > 40) d < 0 ? this.next(true) : this.prev(true); }
+
+  tilt(e: MouseEvent, el: HTMLElement) {
+    if (typeof matchMedia === 'function' && matchMedia('(hover: none)').matches) return;
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+    el.style.transform = 'perspective(1000px) rotateY(' + x * 6 + 'deg) rotateX(' + -y * 5 + 'deg)';
+  }
+  untilt(el: HTMLElement) { el.style.transform = ''; }
+
+  @HostListener('document:keydown.escape') onEsc() { this.zoom.set(false); }
 }

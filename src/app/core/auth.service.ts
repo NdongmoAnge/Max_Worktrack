@@ -17,6 +17,18 @@ export class AuthService {
   /** Profile picture (data URL) of the logged-in user, or null. */
   avatar = computed<string | null>(() => (this._user() ? this._avatars()[this._user()!.email] ?? null : null));
 
+  private _logos = signal<Record<string, string>>(this.loadLogos());
+  /** Logo of the user's enterprise (set by the Company Admin only). */
+  companyLogo = computed<string | null>(() => (this._user() ? this._logos()[this._user()!.enterprise] ?? null : null));
+  private loadLogos(): Record<string, string> {
+    try { return JSON.parse(localStorage.getItem('rms_logos') || '{}'); } catch { return {}; }
+  }
+  setCompanyLogo(dataUrl: string | null) {
+    const u = this._user(); if (!u) return;
+    this._logos.update(m => { const n = { ...m }; dataUrl ? (n[u.enterprise] = dataUrl) : delete n[u.enterprise]; return n; });
+    try { localStorage.setItem('rms_logos', JSON.stringify(this._logos())); } catch {}
+  }
+
   private loadAvatars(): Record<string, string> {
     try { return JSON.parse(localStorage.getItem('rms_avatars') || '{}'); } catch { return {}; }
   }

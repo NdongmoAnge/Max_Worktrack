@@ -17,9 +17,14 @@ export class I18nService {
   get locale(): string { return this.lang() === 'fr' ? 'fr-FR' : 'en-GB'; }
 
   private key() { return 'rms_lang_' + (this.userKey ?? 'visitor'); }
+  /** The website language follows the browser language. */
+  private browserLang(): Lang {
+    const l = String((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase();
+    return l.startsWith('fr') ? 'fr' : 'en';
+  }
   private initial(): Lang {
-    try { const s = localStorage.getItem('rms_lang_visitor'); if (s === 'fr' || s === 'en') return s; } catch {}
-    return (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+    try { const s = sessionStorage.getItem('rms_lang_visitor'); if (s === 'fr' || s === 'en') return s; } catch {}
+    return this.browserLang();
   }
   private apply(l: Lang) { this.lang.set(l); document.documentElement.lang = l; }
 
@@ -37,7 +42,7 @@ export class I18nService {
   /** The person's own choice (EN | FR switch or Profile Settings). */
   set(l: Lang) {
     this.apply(l); this.pref.set(l);
-    try { localStorage.setItem(this.key(), l); } catch {}
+    try { (this.userKey ? localStorage : sessionStorage).setItem(this.key(), l); } catch {}
   }
   /** Forget the personal choice and follow the company default again. */
   setDefaultPreference() {
